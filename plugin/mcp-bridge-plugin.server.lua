@@ -240,6 +240,21 @@ local function createUI(props)
 	local entryCount = 0
 	local maxEntries = 100
 
+	-- Create the dock widget using modern Roblox API
+	local widgetInfo = DockWidgetPluginGuiInfo.new(
+		Enum.InitialDockState.Right,  -- Dock to right side
+		false,  -- Initially disabled (hidden)
+		false,  -- Don't override saved state
+		320,    -- Default width
+		500,    -- Default height
+		280,    -- Minimum width
+		400     -- Minimum height
+	)
+	
+	local widget = plugin:CreateDockWidgetPluginGui("MCPBridgeWidget", widgetInfo)
+	widget.Title = "MCP Bridge"
+	widget.Name = "MCPBridgeWidget"
+
 	-- Create reactive store for UI state
 	local uiStore = createStore({
 		connected = false,
