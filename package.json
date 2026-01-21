@@ -4,6 +4,15 @@
   "description": "MCP bridge connecting AI to Roblox Studio for real-time world building",
   "type": "module",
   "main": "src/index.ts",
+  "bin": {
+    "roblox-bridge-mcp": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "plugin",
+    "README.md",
+    "LICENSE"
+  ],
   "author": "Dayton Dunbar <coderdayton14@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -26,7 +35,6 @@
   ],
   "scripts": {
     "dev": "bun run src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target node",
     "inspect": "bunx fastmcp inspect src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
@@ -34,7 +42,8 @@
     "test:coverage": "bun test --coverage",
     "format": "bunx prettier --write .",
     "format:check": "bunx prettier --check .",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "prepublishOnly": "bun run typecheck && bun test"
   },
   "dependencies": {
     "fastmcp": "^1.20.5",

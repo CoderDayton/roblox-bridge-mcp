@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { FastMCP } from "fastmcp";
 import { startBridgeServer } from "./utils/bridge";
 import { registerAllTools } from "./tools";
