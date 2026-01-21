@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <!-- Gradient for the portal glow -->
+    <radialGradient id="portalGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#7b2cbf" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#1a1a2e" stop-opacity="0"/>
+    </radialGradient>
+    
+    <!-- Gradient for inner energy -->
+    <radialGradient id="innerEnergy" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="30%" stop-color="#00d4ff" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#7b2cbf" stop-opacity="0"/>
+    </radialGradient>
+    
+    <!-- Studio block gradient (Roblox-inspired) -->
+    <linearGradient id="studioBlock" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff6b6b"/>
+      <stop offset="100%" stop-color="#c92a2a"/>
+    </linearGradient>
+    
+    <!-- AI orb gradient -->
+    <radialGradient id="aiOrb" cx="30%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#4cc9f0"/>
+      <stop offset="70%" stop-color="#4361ee"/>
+      <stop offset="100%" stop-color="#3a0ca3"/>
+    </radialGradient>
+    
+    <!-- Outer ring gradient -->
+    <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f72585"/>
+      <stop offset="50%" stop-color="#7209b7"/>
+      <stop offset="100%" stop-color="#4cc9f0"/>
+    </linearGradient>
+    
+    <!-- Glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Stronger glow for center -->
+    <filter id="strongGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Deep space background -->
+  <rect width="256" height="256" fill="#0d0d1a"/>
+  
+  <!-- Outer portal ring -->
+  <circle cx="128" cy="128" r="100" fill="none" stroke="url(#ringGradient)" stroke-width="6" opacity="0.7"/>
+  <circle cx="128" cy="128" r="92" fill="none" stroke="url(#ringGradient)" stroke-width="2" opacity="0.4"/>
+  
+  <!-- Portal energy field -->
+  <circle cx="128" cy="128" r="75" fill="url(#portalGlow)" filter="url(#glow)"/>
+  
+  <!-- Inner energy core -->
+  <circle cx="128" cy="128" r="25" fill="url(#innerEnergy)" filter="url(#strongGlow)"/>
+  
+  <!-- The Studio Block - floating, dimensional, casting into the portal -->
+  <!-- 3D cube effect for Roblox aesthetic -->
+  <g transform="translate(48, 85)" filter="url(#glow)">
+    <!-- Cube top face -->
+    <polygon points="22,0 44,12 22,24 0,12" fill="#ff8787"/>
+    <!-- Cube left face -->
+    <polygon points="0,12 22,24 22,52 0,40" fill="url(#studioBlock)"/>
+    <!-- Cube right face -->
+    <polygon points="22,24 44,12 44,40 22,52" fill="#e03131"/>
+    <!-- Studs on top (Roblox brick style) -->
+    <circle cx="14" cy="10" r="4" fill="#ffaaaa" opacity="0.6"/>
+    <circle cx="30" cy="10" r="4" fill="#ffaaaa" opacity="0.6"/>
+  </g>
+  
+  <!-- The AI Sphere - ethereal, intelligent, receiving -->
+  <g transform="translate(164, 90)" filter="url(#glow)">
+    <!-- Main orb -->
+    <circle cx="22" cy="26" r="26" fill="url(#aiOrb)"/>
+    <!-- Highlight reflection -->
+    <ellipse cx="14" cy="18" rx="8" ry="6" fill="white" opacity="0.3"/>
+    <!-- Neural pattern hints -->
+    <circle cx="22" cy="26" r="18" fill="none" stroke="#4cc9f0" stroke-width="1" opacity="0.5"/>
+    <circle cx="22" cy="26" r="12" fill="none" stroke="#4cc9f0" stroke-width="1" opacity="0.3"/>
+  </g>
+  
+  <!-- Energy streams connecting them through the portal -->
+  <!-- Stream from block to center -->
+  <path d="M 85 115 Q 105 128 128 128" fill="none" stroke="#ff6b6b" stroke-width="3" stroke-linecap="round" filter="url(#glow)" opacity="0.8"/>
+  <path d="M 88 125 Q 108 133 128 128" fill="none" stroke="#ff8787" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  
+  <!-- Stream from center to orb -->
+  <path d="M 128 128 Q 150 128 168 118" fill="none" stroke="#4cc9f0" stroke-width="3" stroke-linecap="round" filter="url(#glow)" opacity="0.8"/>
+  <path d="M 128 128 Q 148 133 165 128" fill="none" stroke="#7209b7" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  
+  <!-- Particles flowing through -->
+  <circle cx="95" cy="120" r="3" fill="#ff6b6b" filter="url(#glow)"/>
+  <circle cx="108" cy="126" r="2" fill="#ff8787" opacity="0.8"/>
+  <circle cx="148" cy="126" r="2" fill="#4cc9f0" opacity="0.8"/>
+  <circle cx="160" cy="122" r="3" fill="#4cc9f0" filter="url(#glow)"/>
+  
+  <!-- Small orbiting elements suggesting continuous flow -->
+  <circle cx="128" cy="48" r="4" fill="#f72585" opacity="0.7"/>
+  <circle cx="195" cy="100" r="3" fill="#4cc9f0" opacity="0.6"/>
+  <circle cx="60" cy="155" r="3" fill="#ff6b6b" opacity="0.6"/>
+  <circle cx="128" cy="210" r="4" fill="#7209b7" opacity="0.7"/>
+</svg>

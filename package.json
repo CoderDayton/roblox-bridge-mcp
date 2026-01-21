@@ -1,0 +1,21 @@
+{
+  "name": "roblox-bridge-mcp",
+  "version": "1.0.0",
+  "description": "MCP bridge connecting AI to Roblox Studio for real-time world building",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "inspect": "bunx fastmcp inspect src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fastmcp": "^1.20.5",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.8.3"
+  }
+}

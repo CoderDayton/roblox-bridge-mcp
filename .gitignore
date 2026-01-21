@@ -1,0 +1,5 @@
+reference-project/
+reference-docs/
+node_modules/
+dist/
+bun.lockb
