@@ -27,7 +27,9 @@ local CONFIG = {
 	BASE_PORT = 53847,
 	RETRY_INTERVAL = 2,
 	MAX_RETRY_INTERVAL = 10,
-	USE_LONG_POLL = true,
+	-- Default API key - matches server .env
+	-- Users can override via Settings panel or _G.MCP_SetApiKey('key')
+	API_KEY = "7273eb6205c492baa2e88c4ec5858015f7563150442d9198",
 }
 
 --------------------------------------------------------------------------------
@@ -35,7 +37,7 @@ local CONFIG = {
 --------------------------------------------------------------------------------
 
 local isConnected = false
-local isEnabled = true
+local isEnabled = false  -- Start disabled, user must click Connect
 local retryInterval = CONFIG.RETRY_INTERVAL
 local activePort = nil
 local serverUrl = nil
@@ -464,21 +466,47 @@ local function createUI(props)
 	redoBtn.Parent = buttonsFrame
 
 	local toggleBtn
+	local lastClickTime = 0
+	local DEBOUNCE_TIME = 0.5  -- 500ms debounce
+	
 	toggleBtn = createButton({
 		name = "ToggleConnection",
-		text = isConnected and "Disconnect" or "Connect",
+		text = "Connect",
 		primary = true,
 		onClick = function()
-			isEnabled = not isEnabled
-			local btnText = isEnabled and "Disconnect" or "Connect"
-			local btn = toggleBtn:FindFirstChild("Btn")
-			if btn then
-				btn.Text = btnText
+			local now = tick()
+			if now - lastClickTime < DEBOUNCE_TIME then
+				print("[MCP] Button click ignored (debounced)")
+				return
+			end
+			lastClickTime = now
+			
+			print("[MCP] Toggle button clicked, isEnabled=" .. tostring(isEnabled))
+			if props.onToggleConnection then
+				props.onToggleConnection()
+			else
+				print("[MCP] ERROR: onToggleConnection is nil!")
 			end
 		end,
 	})
 	toggleBtn.LayoutOrder = 3
 	toggleBtn.Parent = buttonsFrame
+
+	-- Update button text when connection state changes
+	uiStore:subscribe(function(changed, state)
+		-- Only log when connection state actually changes (not uptime)
+		if changed.connected ~= nil then
+			print("[MCP] Connection state changed to:", state.connected)
+			local btn = toggleBtn:FindFirstChild("Btn")
+			if btn then
+				local newText = state.connected and "Disconnect" or "Connect"
+				print("[MCP] Updating button text to:", newText)
+				btn.Text = newText
+			else
+				print("[MCP] WARNING: Btn element not found in toggleBtn")
+			end
+		end
+	end)
 
 	-- Settings Panel
 	local settingsPanel = Instance.new("Frame")
@@ -831,6 +859,26 @@ ui = createUI({
 	onReconnect = reconnect,
 	onRestart = restart,
 	onSaveKey = setApiKey,
+	onToggleConnection = function()
+		isEnabled = not isEnabled
+		print("[MCP] Connection toggled, isEnabled=" .. tostring(isEnabled))
+		
+		if isEnabled then
+			-- Enabling: Show intermediate "connecting" state by updating store
+			-- Set connected=false to show "Connect" state temporarily
+			-- Polling loop will update to connected=true once it succeeds
+			retryInterval = CONFIG.RETRY_INTERVAL
+			ui.setConnectionState(false, "localhost", nil)  -- Trigger store update
+			print("[MCP] Connection enabled, starting discovery...")
+		else
+			-- Disabling: tear down connection immediately  
+			isConnected = false
+			activePort = nil
+			serverUrl = nil
+			ui.setConnectionState(false, nil, nil)  -- Trigger store update
+			print("[MCP] Connection disabled")
+		end
+	end,
 	getCurrentKey = function()
 		return apiKey and string.sub(apiKey, 1, 8) .. "..." or "not set"
 	end,
@@ -1733,104 +1781,221 @@ local function handleCommand(cmd)
 end
 
 --------------------------------------------------------------------------------
--- Polling Loop (Long-polling for near-instant command delivery)
+-- WebSocket Connection (Replaces polling for instant bidirectional communication)
 --------------------------------------------------------------------------------
 
-task.spawn(function()
-	print("[MCP] Bridge starting, discovering server port...")
+local wsClient = nil
+local isConnecting = false  -- Prevent multiple simultaneous connection attempts
 
+local function connectWebSocket()
+	if isConnecting then
+		print("[MCP] Already connecting, skipping...")
+		return false
+	end
+	
+	if wsClient then
+		print("[MCP] Closing existing WebSocket...")
+		pcall(function() wsClient:Close() end)
+		wsClient = nil
+		task.wait(0.5)  -- Give time for cleanup
+	end
+	
+	isConnecting = true
+	
+	local wsUrl = "ws://localhost:" .. CONFIG.BASE_PORT .. "/ws?key=" .. apiKey
+	print("[MCP] Connecting WebSocket to:", wsUrl)
+	
+	local success, client = pcall(function()
+		return HttpService:CreateWebStreamClient(Enum.WebStreamClientType.WebSocket, {
+			Url = wsUrl,
+		})
+	end)
+	
+	if not success then
+		print("[MCP] Failed to create WebSocket client:", tostring(client))
+		isConnecting = false
+		return false
+	end
+	
+	wsClient = client
+	print("[MCP] WebSocket client created, waiting for connection...")
+	
+	-- Handle incoming messages
+	wsClient.MessageReceived:Connect(function(message)
+		print("[MCP] WebSocket message received:", string.sub(message, 1, 100))
+		local ok, data = pcall(function()
+			return HttpService:JSONDecode(message)
+		end)
+		
+		if ok and data then
+			if data.type == "connected" then
+				print("[MCP] Server confirmed connection, clientId:", data.clientId)
+				-- Mark as fully connected now
+				if not isConnected then
+					isConnected = true
+					isConnecting = false
+					retryInterval = CONFIG.RETRY_INTERVAL
+					task.spawn(updateButtonState)
+					print("[MCP] Connected to server via WebSocket!")
+					if ui then
+						task.spawn(function()
+							ui.setConnectionState(true, "localhost", CONFIG.BASE_PORT)
+						end)
+					end
+				end
+			elseif data.type == "commands" and data.data then
+				-- Handle array of commands from server
+				print("[MCP] Received", #data.data, "command(s)")
+				for _, cmd in ipairs(data.data) do
+					print("[MCP] Executing command:", cmd.method)
+					task.spawn(handleCommand, cmd)
+				end
+			elseif data.type == "command" and data.data then
+				-- Handle single command (legacy format)
+				print("[MCP] Received command:", data.data.method)
+				task.spawn(handleCommand, data.data)
+			elseif data.type == "ack" then
+				print("[MCP] Server acknowledged result for:", data.id)
+			end
+		else
+			print("[MCP] Failed to parse message:", message)
+		end
+	end)
+	
+	-- Handle connection opened (WebSocket handshake complete)
+	wsClient.Opened:Connect(function(statusCode, headers)
+		print("[MCP] WebSocket handshake complete, status:", statusCode)
+		-- Don't mark as connected yet - wait for server's "connected" message
+	end)
+	
+	-- Handle connection closed
+	wsClient.Closed:Connect(function()
+		print("[MCP] WebSocket closed, isEnabled:", isEnabled, "isConnected:", isConnected)
+		local wasConnected = isConnected
+		isConnected = false
+		isConnecting = false
+		wsClient = nil
+		
+		task.spawn(updateButtonState)
+		if ui then
+			task.spawn(function()
+				ui.setConnectionState(false, nil, nil)
+			end)
+		end
+		
+		-- Only auto-reconnect if we were previously connected and still enabled
+		if isEnabled and wasConnected then
+			print("[MCP] Connection lost, will reconnect in", retryInterval, "seconds...")
+			task.delay(retryInterval, function()
+				retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
+				if isEnabled and not isConnected and not isConnecting then
+					connectWebSocket()
+				end
+			end)
+		elseif isEnabled and not wasConnected then
+			print("[MCP] Connection failed, will retry in", retryInterval, "seconds...")
+			task.delay(retryInterval, function()
+				retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
+				if isEnabled and not isConnected and not isConnecting then
+					connectWebSocket()
+				end
+			end)
+		end
+	end)
+	
+	-- Handle errors
+	wsClient.Error:Connect(function(statusCode, errorMessage)
+		print("[MCP] WebSocket error:", statusCode, "-", errorMessage)
+		isConnecting = false
+	end)
+	
+	return true
+end
+
+local function disconnectWebSocket()
+	if wsClient then
+		pcall(function() wsClient:Close() end)
+		wsClient = nil
+	end
+	isConnected = false
+	task.spawn(updateButtonState)
+	if ui then
+		task.spawn(function()
+			ui.setConnectionState(false, nil, nil)
+		end)
+	end
+end
+
+-- Override sendResult to use WebSocket
+local originalSendResult = sendResult
+sendResult = function(id, success, result, error)
+	if wsClient and isConnected then
+		local payload = HttpService:JSONEncode({
+			type = "result",
+			data = {
+				id = id,
+				success = success,
+				result = result,
+				error = error,
+			}
+		})
+		print("[MCP] Sending result for command", id, "success:", success)
+		local ok, err = pcall(function()
+			wsClient:Send(payload)
+		end)
+		if not ok then
+			print("[MCP] Failed to send result:", err)
+		end
+	else
+		-- Fallback to HTTP if WebSocket not connected
+		print("[MCP] WebSocket not connected, using HTTP fallback")
+		originalSendResult(id, success, result, error)
+	end
+end
+
+-- Connection manager coroutine
+coroutine.wrap(function()
+	print("[MCP] Bridge starting with WebSocket mode...")
+	
 	while true do
+		task.wait(0.5)
+		
 		if isEnabled then
-			-- Check for API key before attempting connection
+			-- Check for API key
 			if not apiKey or apiKey == "" then
 				print("[MCP] API key not set. Use _G.MCP_SetApiKey('your-key') or enter in Settings panel")
 				task.wait(5)
 				apiKey = getApiKey()
 				continue
 			end
-
-			-- Auto-discover server port if not connected
-			if not isConnected and not activePort then
-				activePort = discoverServerPort()
-				if activePort then
-					serverUrl = "http://localhost:" .. activePort
-					print("[MCP] Found server on port " .. activePort)
-				else
-					print("[MCP] No server found on port " .. CONFIG.BASE_PORT)
-					task.wait(retryInterval)
-					retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
-					continue
-				end
-			end
-
-			-- Long-poll for commands (blocks until commands arrive or timeout)
-			if serverUrl then
-				local pollUrl = serverUrl .. "/poll?key=" .. apiKey
-				if CONFIG.USE_LONG_POLL then
-					pollUrl = pollUrl .. "&long=1"
-				end
-
-				local success, response = pcall(function()
-					return HttpService:GetAsync(pollUrl, false)
+			
+			-- Connect if not already connected
+			if not isConnected and not wsClient then
+				-- First verify server is reachable via HTTP health check
+				local healthUrl = "http://localhost:" .. CONFIG.BASE_PORT .. "/health"
+				local ok, resp = pcall(function()
+					return HttpService:GetAsync(healthUrl, false)
 				end)
-
-				if not success then
-					-- ConnectionClosed is normal for long-poll timeout, just retry
-					if string.find(tostring(response), "ConnectionClosed") then
-						-- Normal timeout, just continue polling
-						task.wait(0.1)
-						continue
-					end
-					print("[MCP] Poll failed: " .. tostring(response))
-				end
-
-				if success then
-					if not isConnected then
-						isConnected = true
-						retryInterval = CONFIG.RETRY_INTERVAL
-						updateButtonState()
-						local mode = CONFIG.USE_LONG_POLL and "long-poll" or "legacy poll"
-						print("[MCP] Connected to server at " .. serverUrl .. " (" .. mode .. ")")
-						if ui then
-							ui.setConnectionState(true, "localhost", activePort)
-						end
-					end
-
-					local ok, commands = pcall(function()
-						return HttpService:JSONDecode(response)
-					end)
-
-					if ok and commands then
-						for _, cmd in pairs(commands) do
-							task.spawn(handleCommand, cmd)
-						end
-					end
-
-					-- No delay needed with long-polling - immediately re-poll
-					if not CONFIG.USE_LONG_POLL then
-						task.wait(0.3)
-					end
+				
+				if ok then
+					print("[MCP] Server found, connecting WebSocket...")
+					connectWebSocket()
+					task.wait(2)  -- Give WebSocket time to connect
 				else
-					if isConnected then
-						isConnected = false
-						activePort = nil
-						serverUrl = nil
-						updateButtonState()
-						print("[MCP] Disconnected from server, will rediscover...")
-						if ui then
-							ui.setConnectionState(false, nil, nil)
-						end
-					end
-
+					print("[MCP] Server not reachable at port", CONFIG.BASE_PORT)
 					task.wait(retryInterval)
 					retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
 				end
 			end
 		else
-			task.wait(0.5)
+			-- Disabled - disconnect if connected
+			if isConnected or wsClient then
+				print("[MCP] Disabling connection...")
+				disconnectWebSocket()
+			end
 		end
 	end
-end)
+end)()
 
 updateButtonState()
 
