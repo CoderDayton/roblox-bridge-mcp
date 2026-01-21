@@ -42,7 +42,7 @@ jobs:
         with:
           body: ${{ steps.changelog.outputs.notes }}
           files: |
-            plugin/loader.server.lua
+            plugin/mcp-bridge-plugin.server.lua
             plugin/icon.png
             plugin/icon.svg
           draft: false
