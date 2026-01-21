@@ -463,14 +463,18 @@ local function createUI(props)
 	redoBtn.LayoutOrder = 2
 	redoBtn.Parent = buttonsFrame
 
-	local toggleBtn = createButton({
+	local toggleBtn
+	toggleBtn = createButton({
 		name = "ToggleConnection",
 		text = isConnected and "Disconnect" or "Connect",
 		primary = true,
 		onClick = function()
 			isEnabled = not isEnabled
 			local btnText = isEnabled and "Disconnect" or "Connect"
-			toggleBtn:FindFirstChild("Btn").Text = btnText
+			local btn = toggleBtn:FindFirstChild("Btn")
+			if btn then
+				btn.Text = btnText
+			end
 		end,
 	})
 	toggleBtn.LayoutOrder = 3
