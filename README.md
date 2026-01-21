@@ -77,6 +77,44 @@ Open a place in Studio. The plugin will auto-start and the toolbar button should
 
 The `roblox` tool will be available in your MCP client (restart the client if needed).
 
+## Configuration
+
+<details>
+<summary>Environment Variables</summary>
+
+You can configure the bridge server behavior using environment variables. Create a `.env` file in your project root or set these in your MCP client configuration:
+
+| Variable             | Description                                   | Default |
+| -------------------- | --------------------------------------------- | ------- |
+| `ROBLOX_BRIDGE_PORT` | Port for the HTTP bridge server               | `8081`  |
+| `ROBLOX_TIMEOUT_MS`  | Timeout in milliseconds for command execution | `30000` |
+
+**Example `.env` file:**
+
+```bash
+ROBLOX_BRIDGE_PORT=8081
+ROBLOX_TIMEOUT_MS=30000
+```
+
+**MCP Client Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "roblox-bridge-mcp": {
+      "command": "npx",
+      "args": ["-y", "roblox-bridge-mcp"],
+      "env": {
+        "ROBLOX_BRIDGE_PORT": "8081",
+        "ROBLOX_TIMEOUT_MS": "30000"
+      }
+    }
+  }
+}
+```
+
+</details>
+
 ## Usage
 
 ### Basic Workflow
