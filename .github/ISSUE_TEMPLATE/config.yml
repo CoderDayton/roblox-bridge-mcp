@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/CoderDayton/roblox-bridge-mcp#readme
+    about: Check the README for setup and usage instructions
+  - name: Buy Me a Coffee
+    url: https://buymeacoffee.com/coderdayton
+    about: Support the project
