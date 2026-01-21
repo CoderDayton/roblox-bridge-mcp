@@ -13,6 +13,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Selection = game:GetService("Selection")
 local SoundService = game:GetService("SoundService")
+local StudioService = game:GetService("StudioService")
 local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 
@@ -114,7 +115,7 @@ local function createButton(props)
 	shadow.Parent = container
 
 	local shadowCorner = Instance.new("UICorner")
-	CornerRadius = UDim.new(0, 6)
+	shadowCorner.CornerRadius = UDim.new(0, 6)
 	shadowCorner.Parent = shadow
 
 	local btn = Instance.new("TextButton")
