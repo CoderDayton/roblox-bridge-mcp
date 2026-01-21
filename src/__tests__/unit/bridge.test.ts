@@ -37,7 +37,10 @@ describe("RobloxBridge", () => {
 
   describe("result handling", () => {
     test("resolves promise on successful result", async () => {
-      const executePromise = bridge.execute<string>("GetProperty", { path: "game.Workspace", property: "Name" });
+      const executePromise = bridge.execute<string>("GetProperty", {
+        path: "game.Workspace",
+        property: "Name",
+      });
       const commands = bridge.getPendingCommands();
       const commandId = commands[0].id;
 
@@ -52,7 +55,9 @@ describe("RobloxBridge", () => {
     });
 
     test("rejects promise on failed result", async () => {
-      const executePromise = bridge.execute("DeleteInstance", { path: "game.Workspace.NonExistent" });
+      const executePromise = bridge.execute("DeleteInstance", {
+        path: "game.Workspace.NonExistent",
+      });
       const commands = bridge.getPendingCommands();
       const commandId = commands[0].id;
 
@@ -79,23 +84,27 @@ describe("RobloxBridge", () => {
   });
 
   describe("timeout behavior", () => {
-    test("rejects after timeout", async () => {
-      const executePromise = bridge.execute("CreateInstance", { className: "Part" });
-      
-      // Fast-forward time would require mocking setTimeout
-      // For now, we test that the promise is created
-      expect(executePromise).toBeInstanceOf(Promise);
-      
-      // Clean up by resolving
-      const commands = bridge.getPendingCommands();
-      bridge.handleResult({
-        id: commands[0].id,
-        success: true,
-        data: "test",
-      });
-      
-      await executePromise;
-    }, { timeout: 1000 });
+    test(
+      "rejects after timeout",
+      async () => {
+        const executePromise = bridge.execute("CreateInstance", { className: "Part" });
+
+        // Fast-forward time would require mocking setTimeout
+        // For now, we test that the promise is created
+        expect(executePromise).toBeInstanceOf(Promise);
+
+        // Clean up by resolving
+        const commands = bridge.getPendingCommands();
+        bridge.handleResult({
+          id: commands[0].id,
+          success: true,
+          data: "test",
+        });
+
+        await executePromise;
+      },
+      { timeout: 1000 }
+    );
   });
 
   describe("concurrent commands", () => {
@@ -124,9 +133,9 @@ describe("RobloxBridge", () => {
       for (const cmd of existingCommands) {
         bridge.handleResult({ id: cmd.id, success: true, data: "cleanup" });
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       const initialCount = bridge.pendingCount;
 
       const promise1 = bridge.execute("CreateInstance", { className: "Part" });
@@ -141,7 +150,7 @@ describe("RobloxBridge", () => {
 
       bridge.handleResult({ id: commands[1].id, success: true, data: "ok" });
       expect(bridge.pendingCount).toBe(initialCount);
-      
+
       await Promise.all([promise1, promise2]);
     });
   });

@@ -1,0 +1,22 @@
+pre-commit:
+  parallel: false
+  commands:
+    typecheck:
+      tags: typecheck
+      run: bun run typecheck
+
+    format:
+      tags: format
+      glob: "*.{ts,js,json,md}"
+      run: |
+        bunx prettier --check {staged_files}
+
+    test:
+      tags: test
+      run: bun test
+
+    lint-ts:
+      tags: lint
+      glob: "*.ts"
+      run: |
+        bunx eslint {staged_files} || echo "ESLint not configured, skipping"

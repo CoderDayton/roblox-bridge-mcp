@@ -3,21 +3,62 @@ import { z } from "zod";
 
 // Import the METHODS array and test it matches our schema
 const METHODS = [
-  "CreateInstance","DeleteInstance","CloneInstance","RenameInstance",
-  "SetProperty","GetProperty",
-  "GetChildren","GetDescendants","FindFirstChild","GetService",
-  "MoveTo","SetPosition","SetRotation","SetSize","PivotTo","GetPivot",
-  "SetColor","SetTransparency","SetMaterial",
-  "SetAnchored","SetCanCollide",
-  "CreateScript","GetScriptSource","SetScriptSource","AppendToScript","ReplaceScriptLines","InsertScriptLines","RunConsoleCommand",
-  "GetSelection","SetSelection","ClearSelection","AddToSelection",
-  "GroupSelection","UngroupModel",
-  "SetTimeOfDay","SetBrightness","SetAtmosphereDensity","CreateLight",
-  "SetAttribute","GetAttribute","GetAttributes","AddTag","RemoveTag","GetTags","HasTag",
-  "GetPlayers","GetPlayerPosition","TeleportPlayer","KickPlayer",
-  "SavePlace","GetPlaceInfo",
-  "PlaySound","StopSound",
-  "GetDistance","HighlightObject","Chat",
+  "CreateInstance",
+  "DeleteInstance",
+  "CloneInstance",
+  "RenameInstance",
+  "SetProperty",
+  "GetProperty",
+  "GetChildren",
+  "GetDescendants",
+  "FindFirstChild",
+  "GetService",
+  "MoveTo",
+  "SetPosition",
+  "SetRotation",
+  "SetSize",
+  "PivotTo",
+  "GetPivot",
+  "SetColor",
+  "SetTransparency",
+  "SetMaterial",
+  "SetAnchored",
+  "SetCanCollide",
+  "CreateScript",
+  "GetScriptSource",
+  "SetScriptSource",
+  "AppendToScript",
+  "ReplaceScriptLines",
+  "InsertScriptLines",
+  "RunConsoleCommand",
+  "GetSelection",
+  "SetSelection",
+  "ClearSelection",
+  "AddToSelection",
+  "GroupSelection",
+  "UngroupModel",
+  "SetTimeOfDay",
+  "SetBrightness",
+  "SetAtmosphereDensity",
+  "CreateLight",
+  "SetAttribute",
+  "GetAttribute",
+  "GetAttributes",
+  "AddTag",
+  "RemoveTag",
+  "GetTags",
+  "HasTag",
+  "GetPlayers",
+  "GetPlayerPosition",
+  "TeleportPlayer",
+  "KickPlayer",
+  "SavePlace",
+  "GetPlaceInfo",
+  "PlaySound",
+  "StopSound",
+  "GetDistance",
+  "HighlightObject",
+  "Chat",
 ] as const;
 
 const RobloxMethodSchema = z.enum(METHODS);
@@ -54,61 +95,79 @@ describe("Tool Parameter Validation", () => {
         properties: z.record(z.unknown()).optional(),
       });
 
-      expect(() => schema.parse({
-        className: "Part",
-        parentPath: "game.Workspace",
-      })).not.toThrow();
+      expect(() =>
+        schema.parse({
+          className: "Part",
+          parentPath: "game.Workspace",
+        })
+      ).not.toThrow();
 
-      expect(() => schema.parse({
-        className: "Part",
-        parentPath: "game.Workspace",
-        name: "MyPart",
-        properties: { Anchored: true },
-      })).not.toThrow();
+      expect(() =>
+        schema.parse({
+          className: "Part",
+          parentPath: "game.Workspace",
+          name: "MyPart",
+          properties: { Anchored: true },
+        })
+      ).not.toThrow();
 
-      expect(() => schema.parse({
-        className: "Part",
-        // missing parentPath
-      })).toThrow();
+      expect(() =>
+        schema.parse({
+          className: "Part",
+          // missing parentPath
+        })
+      ).toThrow();
     });
 
     test("validates SetPosition params", () => {
-      const schema = z.object({
-        path: PathSchema,
-      }).merge(Vector3Params);
+      const schema = z
+        .object({
+          path: PathSchema,
+        })
+        .merge(Vector3Params);
 
-      expect(() => schema.parse({
-        path: "game.Workspace.Part",
-        x: 10,
-        y: 5,
-        z: 0,
-      })).not.toThrow();
+      expect(() =>
+        schema.parse({
+          path: "game.Workspace.Part",
+          x: 10,
+          y: 5,
+          z: 0,
+        })
+      ).not.toThrow();
 
-      expect(() => schema.parse({
-        path: "game.Workspace.Part",
-        x: 10,
-        // missing y, z
-      })).toThrow();
+      expect(() =>
+        schema.parse({
+          path: "game.Workspace.Part",
+          x: 10,
+          // missing y, z
+        })
+      ).toThrow();
     });
 
     test("validates SetColor params", () => {
-      const schema = z.object({
-        path: PathSchema,
-      }).merge(ColorParams);
+      const schema = z
+        .object({
+          path: PathSchema,
+        })
+        .merge(ColorParams);
 
-      expect(() => schema.parse({
-        path: "game.Workspace.Part",
-        r: 255,
-        g: 128,
-        b: 0,
-      })).not.toThrow();
+      expect(() =>
+        schema.parse({
+          path: "game.Workspace.Part",
+          r: 255,
+          g: 128,
+          b: 0,
+        })
+      ).not.toThrow();
 
-      expect(() => schema.parse({
-        path: "game.Workspace.Part",
-        r: 255,
-        g: 128,
-        // missing b
-      })).toThrow();
+      expect(() =>
+        schema.parse({
+          path: "game.Workspace.Part",
+          r: 255,
+          g: 128,
+          // missing b
+        })
+      ).toThrow();
     });
 
     test("validates array parameters", () => {
@@ -145,10 +204,12 @@ describe("Tool Parameter Validation", () => {
     });
 
     test("accepts valid tool calls", () => {
-      expect(() => ToolSchema.parse({
-        method: "CreateInstance",
-        params: { className: "Part", parentPath: "game.Workspace" },
-      })).not.toThrow();
+      expect(() =>
+        ToolSchema.parse({
+          method: "CreateInstance",
+          params: { className: "Part", parentPath: "game.Workspace" },
+        })
+      ).not.toThrow();
     });
 
     test("defaults empty params to empty object", () => {
@@ -160,10 +221,12 @@ describe("Tool Parameter Validation", () => {
     });
 
     test("rejects invalid method", () => {
-      expect(() => ToolSchema.parse({
-        method: "InvalidMethod",
-        params: {},
-      })).toThrow();
+      expect(() =>
+        ToolSchema.parse({
+          method: "InvalidMethod",
+          params: {},
+        })
+      ).toThrow();
     });
   });
 });

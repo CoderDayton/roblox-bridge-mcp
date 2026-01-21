@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import type { Server } from "bun";
 
 describe("HTTP Bridge Integration", () => {
-  let mockServer: Server;
+  let mockServer: Server<any>;
   const TEST_PORT = 8082;
 
   beforeAll(async () => {
@@ -105,11 +105,14 @@ describe("Error Handling", () => {
       port: 8083,
       fetch(req) {
         if (req.method === "POST" && new URL(req.url).pathname === "/result") {
-          return req.text().then(() => {
-            return Response.json({ status: "error", message: "Invalid JSON" }, { status: 400 });
-          }).catch(() => {
-            return Response.json({ status: "error", message: "Parse failed" }, { status: 400 });
-          });
+          return req
+            .text()
+            .then(() => {
+              return Response.json({ status: "error", message: "Invalid JSON" }, { status: 400 });
+            })
+            .catch(() => {
+              return Response.json({ status: "error", message: "Parse failed" }, { status: 400 });
+            });
         }
         return new Response("Not Found", { status: 404 });
       },
