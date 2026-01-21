@@ -2,6 +2,7 @@ import { EventEmitter } from "events";
 import { RobloxTimeoutError, RobloxExecutionError, BridgeConnectionError } from "./errors";
 import { config } from "../config";
 import { logger } from "./logger";
+import type { ServerWebSocket } from "bun";
 
 export interface RobloxCommand {
   id: string;
@@ -36,6 +37,18 @@ export interface BridgeMetrics {
   methodStats: Record<string, { count: number; avgDuration: number; failures: number }>;
 }
 
+/** WebSocket client data */
+interface WSClientData {
+  id: string;
+  connectedAt: number;
+}
+
+/** Pending long-poll request */
+interface PendingPoll {
+  resolve: (commands: RobloxCommand[]) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
 class RobloxBridge extends EventEmitter {
   private commandQueue: RobloxCommand[] = [];
   private pendingResponses = new Map<string, (result: RobloxResult) => void>();
@@ -46,9 +59,27 @@ class RobloxBridge extends EventEmitter {
   private readonly maxHistorySize = 100;
   private commandStartTimes = new Map<string, number>();
 
-  /** Check if bridge appears to be connected (plugin is polling) */
+  // WebSocket clients
+  private wsClients = new Set<ServerWebSocket<WSClientData>>();
+
+  // Long-polling support
+  private pendingPolls: PendingPoll[] = [];
+  private readonly longPollTimeout = 25_000; // 25 seconds (less than typical 30s HTTP timeout)
+
+  /** Check if bridge appears to be connected (plugin is polling or WebSocket connected) */
   isConnected(): boolean {
-    return Date.now() - this.lastPollTime < 10_000; // 10 second window
+    const httpConnected = Date.now() - this.lastPollTime < 10_000;
+    const wsConnected = this.wsClients.size > 0;
+    return httpConnected || wsConnected;
+  }
+
+  /** Get connection info */
+  getConnectionInfo(): { httpConnected: boolean; wsClients: number; lastPollTime: number } {
+    return {
+      httpConnected: Date.now() - this.lastPollTime < 10_000,
+      wsClients: this.wsClients.size,
+      lastPollTime: this.lastPollTime,
+    };
   }
 
   /** Get metrics about command execution */
@@ -130,7 +161,9 @@ class RobloxBridge extends EventEmitter {
 
     this.commandQueue.push(command);
     this.commandStartTimes.set(id, Date.now());
-    this.emit("new_command");
+
+    // Notify waiting long-polls and WebSocket clients
+    this.notifyNewCommand();
 
     return new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -155,6 +188,36 @@ class RobloxBridge extends EventEmitter {
     });
   }
 
+  /** Notify all waiting clients about new commands */
+  private notifyNewCommand(): void {
+    // Resolve all pending long-polls immediately
+    if (this.pendingPolls.length > 0) {
+      const commands = this.drainCommandQueue();
+      for (const poll of this.pendingPolls) {
+        clearTimeout(poll.timeout);
+        poll.resolve(commands);
+      }
+      this.pendingPolls = [];
+      return; // Commands already drained
+    }
+
+    // Notify WebSocket clients
+    if (this.wsClients.size > 0 && this.commandQueue.length > 0) {
+      const commands = this.drainCommandQueue();
+      const message = JSON.stringify({ type: "commands", data: commands });
+      for (const client of this.wsClients) {
+        client.send(message);
+      }
+    }
+  }
+
+  /** Drain and return all commands from queue */
+  private drainCommandQueue(): RobloxCommand[] {
+    const commands = [...this.commandQueue];
+    this.commandQueue = [];
+    return commands;
+  }
+
   /** Record a command metric */
   private recordMetric(id: string, method: string, success: boolean, error?: string): void {
     const startTime = this.commandStartTimes.get(id);
@@ -175,12 +238,35 @@ class RobloxBridge extends EventEmitter {
     }
   }
 
-  /** Get pending commands (called by Roblox plugin via HTTP) */
+  /** Get pending commands immediately (legacy polling) */
   getPendingCommands(): RobloxCommand[] {
-    this.lastPollTime = Date.now(); // Track connection
-    const commands = [...this.commandQueue];
-    this.commandQueue = [];
-    return commands;
+    this.lastPollTime = Date.now();
+    return this.drainCommandQueue();
+  }
+
+  /** Long-poll for commands (blocks until commands arrive or timeout) */
+  async longPoll(): Promise<RobloxCommand[]> {
+    this.lastPollTime = Date.now();
+
+    // If commands already queued, return immediately
+    if (this.commandQueue.length > 0) {
+      return this.drainCommandQueue();
+    }
+
+    // Wait for new commands or timeout
+    return new Promise<RobloxCommand[]>((resolve) => {
+      const timeout = setTimeout(() => {
+        // Remove this poll from pending list
+        const idx = this.pendingPolls.findIndex((p) => p.resolve === resolve);
+        if (idx !== -1) {
+          this.pendingPolls.splice(idx, 1);
+        }
+        // Return empty array on timeout (client will re-poll)
+        resolve([]);
+      }, this.longPollTimeout);
+
+      this.pendingPolls.push({ resolve, timeout });
+    });
   }
 
   /** Handle result from Roblox plugin */
@@ -190,6 +276,18 @@ class RobloxBridge extends EventEmitter {
       resolver(result);
       this.pendingResponses.delete(result.id);
     }
+  }
+
+  /** Register a WebSocket client */
+  addWebSocketClient(ws: ServerWebSocket<WSClientData>): void {
+    this.wsClients.add(ws);
+    logger.bridge.info("WebSocket client connected", { clientId: ws.data.id });
+  }
+
+  /** Remove a WebSocket client */
+  removeWebSocketClient(ws: ServerWebSocket<WSClientData>): void {
+    this.wsClients.delete(ws);
+    logger.bridge.info("WebSocket client disconnected", { clientId: ws.data.id });
   }
 
   /** Get the number of pending commands */
@@ -209,29 +307,65 @@ export function getActiveBridgePort(): number | null {
 }
 
 /**
- * Try to start server on a specific port
+ * Try to start server on a specific port with WebSocket support
  * @returns Server instance if successful, null if port is in use
  */
 function tryStartServer(port: number): ReturnType<typeof Bun.serve> | null {
   try {
-    const server = Bun.serve({
+    const server = Bun.serve<WSClientData>({
       port,
-      fetch(req) {
+      fetch(req, server) {
         const url = new URL(req.url);
 
-        // Health check endpoint for port discovery
+        // Health check endpoint - no auth required for discovery
         if (req.method === "GET" && url.pathname === "/health") {
+          const connInfo = bridge.getConnectionInfo();
           return Response.json({
             status: "ok",
             service: "roblox-bridge-mcp",
             port,
             connected: bridge.isConnected(),
+            connections: {
+              http: connInfo.httpConnected,
+              websocket: connInfo.wsClients,
+            },
             uptime: process.uptime(),
           });
         }
 
-        // Roblox polls for commands
+        // All other endpoints require API key authentication
+        const authHeader = req.headers.get("Authorization");
+        const apiKeyParam = url.searchParams.get("key");
+        const providedKey = authHeader?.replace("Bearer ", "") || apiKeyParam;
+
+        if (providedKey !== config.apiKey) {
+          return Response.json(
+            { error: "Unauthorized", message: "Invalid or missing API key" },
+            { status: 401 }
+          );
+        }
+
+        // WebSocket upgrade (auth via query param since headers not supported in WS)
+        if (url.pathname === "/ws") {
+          const clientId = crypto.randomUUID().slice(0, 8);
+          const upgraded = server.upgrade(req, {
+            data: { id: clientId, connectedAt: Date.now() },
+          });
+          if (upgraded) {
+            return undefined; // Upgrade successful
+          }
+          return new Response("WebSocket upgrade failed", { status: 400 });
+        }
+
+        // Long-poll for commands (blocks until commands arrive)
         if (req.method === "GET" && url.pathname === "/poll") {
+          const useLongPoll = url.searchParams.get("long") === "1";
+
+          if (useLongPoll) {
+            return bridge.longPoll().then((commands) => Response.json(commands));
+          }
+
+          // Legacy immediate poll
           const commands = bridge.getPendingCommands();
           return Response.json(commands);
         }
@@ -245,6 +379,28 @@ function tryStartServer(port: number): ReturnType<typeof Bun.serve> | null {
         }
 
         return new Response("Not Found", { status: 404 });
+      },
+      websocket: {
+        open(ws) {
+          bridge.addWebSocketClient(ws);
+          ws.send(JSON.stringify({ type: "connected", clientId: ws.data.id }));
+        },
+        message(ws, message) {
+          try {
+            const data = JSON.parse(message.toString());
+
+            // Handle results sent via WebSocket
+            if (data.type === "result" && data.data) {
+              bridge.handleResult(data.data as RobloxResult);
+              ws.send(JSON.stringify({ type: "ack", id: data.data.id }));
+            }
+          } catch (error) {
+            ws.send(JSON.stringify({ type: "error", message: "Invalid JSON" }));
+          }
+        },
+        close(ws) {
+          bridge.removeWebSocketClient(ws);
+        },
       },
     });
     return server;
@@ -274,6 +430,8 @@ export function startBridgeServer(): void {
             : `port ${port} (preferred ${preferredPort} was in use)`;
 
         console.error(`[Bridge] Roblox bridge server running on ${portInfo}`);
+        console.error(`[Bridge] API Key: ${config.apiKey}`);
+        console.error(`[Bridge] Set this key in your Roblox plugin to connect`);
         logger.bridge.info("Roblox bridge server started", {
           port,
           preferredPort,

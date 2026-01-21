@@ -31,12 +31,14 @@ roblox-bridge-mcp enables AI agents to directly interact with Roblox Studio thro
 
 ## Features
 
-- **Single Unified Tool** - All 56 operations accessible via one `roblox` tool with method dispatch
+- **Single Unified Tool** - All 75 operations accessible via one `roblox` tool with method dispatch
+- **API Key Security** - Simple authentication to protect the bridge server
 - **Automatic Port Discovery** - Bridge server tries ports 8081-8090 with automatic fallback
+- **Long-Polling & WebSocket** - Near-instant command delivery (replaces 300ms polling)
 - **Seamless Startup** - MCP server always starts, even if bridge port is occupied
-- **Real-time Communication** - HTTP polling bridge with exponential backoff and connection status
+- **Real-time Communication** - HTTP long-polling with exponential backoff reconnection
 - **Studio Integration** - Toolbar button with visual connection indicator and auto-discovery
-- **Comprehensive Coverage** - Instance CRUD, scripting, transforms, physics, lighting, selection, and more
+- **Comprehensive Coverage** - Instance CRUD, scripting, transforms, physics, terrain, camera, and more
 - **Type-Safe** - Zod schemas for all parameters
 - **Modern Stack** - Bun runtime, FastMCP framework, task-based Lua
 
@@ -71,11 +73,31 @@ Download the latest `loader.server.lua` from the [releases page](https://github.
 - **Windows:** `%LOCALAPPDATA%\Roblox\Plugins`
 - **macOS:** `~/Documents/Roblox/Plugins`
 
-**3. Start Roblox Studio**
+**3. Configure the API key**
 
-Open a place in Studio. The plugin will auto-start and the toolbar button should appear.
+When the MCP server starts, it displays an API key in the console:
 
-**4. Use from your MCP client**
+```
+[Bridge] Roblox bridge server running on port 8081
+[Bridge] API Key: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+[Bridge] Set this key in your Roblox plugin to connect
+```
+
+In Roblox Studio, open the command bar (View > Command Bar) and run:
+
+```lua
+_G.MCP_SetApiKey("a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6")
+```
+
+The key is saved in plugin settings and persists across Studio sessions.
+
+> **Tip:** For a persistent API key that survives server restarts, set `ROBLOX_API_KEY` in your environment (see [Configuration](#configuration)).
+
+**4. Start Roblox Studio**
+
+Open a place in Studio. The plugin will auto-connect (toolbar button turns active).
+
+**5. Use from your MCP client**
 
 The `roblox` tool will be available in your MCP client (restart the client if needed).
 
@@ -86,18 +108,24 @@ The `roblox` tool will be available in your MCP client (restart the client if ne
 
 You can configure the bridge server behavior using environment variables. Create a `.env` file in your project root or set these in your MCP client configuration:
 
-| Variable             | Description                                                    | Default |
-| -------------------- | -------------------------------------------------------------- | ------- |
-| `ROBLOX_BRIDGE_PORT` | Preferred port for the HTTP bridge server (will try 8081-8090) | `8081`  |
-| `ROBLOX_TIMEOUT_MS`  | Timeout in milliseconds for command execution                  | `30000` |
-| `ROBLOX_RETRIES`     | Number of retry attempts for failed commands                   | `2`     |
-| `LOG_LEVEL`          | Logging level (DEBUG, INFO, WARN, ERROR)                       | `INFO`  |
+| Variable             | Description                                                    | Default     |
+| -------------------- | -------------------------------------------------------------- | ----------- |
+| `ROBLOX_API_KEY`     | API key for bridge authentication (auto-generated if not set)  | Random UUID |
+| `ROBLOX_BRIDGE_PORT` | Preferred port for the HTTP bridge server (will try 8081-8090) | `8081`      |
+| `ROBLOX_TIMEOUT_MS`  | Timeout in milliseconds for command execution                  | `30000`     |
+| `ROBLOX_RETRIES`     | Number of retry attempts for failed commands                   | `2`         |
+| `LOG_LEVEL`          | Logging level (DEBUG, INFO, WARN, ERROR)                       | `INFO`      |
+
+**Note:** If `ROBLOX_API_KEY` is not set, a random key is generated on each server startup. For persistent connections, set a fixed key in your `.env` file.
 
 **Note:** The bridge server automatically tries ports 8081-8090 in sequence. If the preferred port is occupied, it will use the next available port. The Studio plugin automatically discovers and connects to the active server.
 
 **Example `.env` file:**
 
 ```bash
+# Persistent API key (recommended for production)
+ROBLOX_API_KEY=my-secure-api-key-here
+
 ROBLOX_BRIDGE_PORT=8081
 ROBLOX_TIMEOUT_MS=30000
 ROBLOX_RETRIES=2
@@ -113,6 +141,7 @@ LOG_LEVEL=INFO
       "command": "npx",
       "args": ["-y", "roblox-bridge-mcp"],
       "env": {
+        "ROBLOX_API_KEY": "my-secure-api-key-here",
         "ROBLOX_BRIDGE_PORT": "8081",
         "LOG_LEVEL": "INFO",
         "ROBLOX_RETRIES": "2",
@@ -316,14 +345,29 @@ All instance paths use dot notation starting from `game`:
 
 The Studio plugin provides:
 
+- **API Key Authentication** - Secure connection with server-provided key
 - **Automatic Discovery** - Scans ports 8081-8090 to find and connect to the bridge server
 - **Service Validation** - Verifies server identity using health endpoint before connecting
+- **Long-Polling** - Near-instant command delivery (no 300ms polling delay)
 - **Toolbar Integration** - "MCP Bridge" toolbar with toggle button
 - **Connection Status** - Visual indicator (active = connected, inactive = disconnected)
 - **Enable/Disable** - Click toolbar button to toggle bridge on/off
-- **Auto-Reconnect** - Exponential backoff (2s → 10s) on connection loss with port rediscovery
+- **Auto-Reconnect** - Exponential backoff (2s to 10s) on connection loss with port rediscovery
+- **Persistent Settings** - API key saved across Studio sessions
 - **Modern Lua** - Uses `task` library, no deprecated APIs
 - **Error Handling** - Structured error messages with context
+
+### Plugin Commands
+
+Run these in the Studio command bar (View > Command Bar):
+
+```lua
+-- Set API key (required for first connection)
+_G.MCP_SetApiKey("your-api-key-here")
+
+-- Check current API key (shows truncated key)
+print(_G.MCP_GetApiKey())
+```
 
 ## Architecture
 
@@ -387,13 +431,20 @@ bun run build
 
 ## Troubleshooting
 
+**Plugin says "API key not set":**
+
+- Run `_G.MCP_SetApiKey("your-key")` in the Studio command bar
+- The API key is shown in the server console when it starts
+- If using a persistent key, ensure `ROBLOX_API_KEY` is set in your environment
+
 **Plugin not connecting:**
 
 - Check that Roblox Studio is running
-- Verify HttpService is enabled in Studio settings
+- Verify HttpService is enabled in Studio settings (Game Settings > Security)
 - Ensure no firewall is blocking localhost ports 8081-8090
 - Check Studio output window for `[MCP]` log messages showing port discovery
 - The plugin will show which port it discovered (e.g., "Discovered server on port 8084")
+- Verify the API key is correct (check server console output)
 
 **Tool not appearing in MCP client:**
 
@@ -413,6 +464,12 @@ bun run build
 - The bridge automatically tries ports 8081-8090
 - Check server startup logs to see which port was used
 - If all ports are occupied, the MCP server will still start but tools will fail until a port is available
+
+**401 Unauthorized errors:**
+
+- The API key in the plugin doesn't match the server's key
+- Re-copy the key from the server console and set it with `_G.MCP_SetApiKey()`
+- If using `ROBLOX_API_KEY` env var, ensure it's the same on both ends
 
 ## Contributing
 

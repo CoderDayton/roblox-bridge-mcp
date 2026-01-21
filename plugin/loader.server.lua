@@ -21,9 +21,11 @@ local TextChatService = game:GetService("TextChatService")
 local CONFIG = {
 	BASE_PORT = 8081,
 	PORT_RANGE = 10, -- Try 8081-8090
-	POLL_INTERVAL = 0.3,
+	LONG_POLL_TIMEOUT = 25, -- Server holds request for 25 seconds max
 	RETRY_INTERVAL = 2.0,
 	MAX_RETRY_INTERVAL = 10.0,
+	USE_LONG_POLL = true, -- Enable long-polling for near-instant command delivery
+	API_KEY = "", -- Set this to your MCP server API key (shown on server startup)
 }
 
 --------------------------------------------------------------------------------
@@ -35,6 +37,33 @@ local isEnabled = true
 local retryInterval = CONFIG.RETRY_INTERVAL
 local activePort = nil -- Will be discovered dynamically
 local serverUrl = nil -- Built from active port
+local apiKey = nil -- Loaded from plugin settings or CONFIG
+
+--------------------------------------------------------------------------------
+-- API Key Management
+--------------------------------------------------------------------------------
+
+local function getApiKey()
+	-- Try to load from plugin settings first
+	local savedKey = plugin:GetSetting("MCP_API_KEY")
+	if savedKey and savedKey ~= "" then
+		return savedKey
+	end
+	-- Fall back to CONFIG
+	if CONFIG.API_KEY and CONFIG.API_KEY ~= "" then
+		return CONFIG.API_KEY
+	end
+	return nil
+end
+
+local function setApiKey(key)
+	plugin:SetSetting("MCP_API_KEY", key)
+	apiKey = key
+	print("[MCP] API key saved to plugin settings")
+end
+
+-- Load API key on startup
+apiKey = getApiKey()
 
 --------------------------------------------------------------------------------
 -- UI Setup
@@ -101,6 +130,11 @@ local function sendResult(id, success, data, err)
 		return
 	end
 	
+	if not apiKey then
+		warn("[MCP] Cannot send result: API key not set")
+		return
+	end
+	
 	local payload = {
 		id = id,
 		success = success,
@@ -108,7 +142,8 @@ local function sendResult(id, success, data, err)
 		error = err,
 	}
 	pcall(function()
-		HttpService:PostAsync(serverUrl .. "/result", HttpService:JSONEncode(payload))
+		local url = serverUrl .. "/result?key=" .. apiKey
+		HttpService:PostAsync(url, HttpService:JSONEncode(payload))
 	end)
 end
 
@@ -954,7 +989,7 @@ local function handleCommand(cmd)
 end
 
 --------------------------------------------------------------------------------
--- Polling Loop
+-- Polling Loop (Long-polling for near-instant command delivery)
 --------------------------------------------------------------------------------
 
 task.spawn(function()
@@ -962,6 +997,14 @@ task.spawn(function()
 
 	while true do
 		if isEnabled then
+			-- Check for API key before attempting connection
+			if not apiKey or apiKey == "" then
+				print("[MCP] API key not set. Use setApiKey('your-key') or set CONFIG.API_KEY in the plugin")
+				task.wait(5)
+				apiKey = getApiKey() -- Re-check in case it was set
+				continue
+			end
+
 			-- Auto-discover server port if not connected
 			if not isConnected and not activePort then
 				activePort = discoverServerPort()
@@ -976,10 +1019,16 @@ task.spawn(function()
 				end
 			end
 
-			-- Poll for commands
+			-- Long-poll for commands (blocks until commands arrive or timeout)
 			if serverUrl then
+				local pollUrl = serverUrl .. "/poll?key=" .. apiKey
+				if CONFIG.USE_LONG_POLL then
+					pollUrl = pollUrl .. "&long=1"
+				end
+
 				local success, response = pcall(function()
-					return HttpService:GetAsync(serverUrl .. "/poll")
+					-- Long-poll: server holds connection for up to 25s waiting for commands
+					return HttpService:GetAsync(pollUrl, false)
 				end)
 
 				if success then
@@ -987,7 +1036,8 @@ task.spawn(function()
 						isConnected = true
 						retryInterval = CONFIG.RETRY_INTERVAL
 						updateButtonState()
-						print("[MCP] Connected to server at " .. serverUrl)
+						local mode = CONFIG.USE_LONG_POLL and "long-poll" or "legacy poll"
+						print("[MCP] Connected to server at " .. serverUrl .. " (" .. mode .. ")")
 					end
 
 					local ok, commands = pcall(function()
@@ -1000,7 +1050,11 @@ task.spawn(function()
 						end
 					end
 
-					task.wait(CONFIG.POLL_INTERVAL)
+					-- No delay needed with long-polling - immediately re-poll
+					-- The server will hold the connection until commands arrive
+					if not CONFIG.USE_LONG_POLL then
+						task.wait(0.3) -- Legacy fallback interval
+					end
 				else
 					if isConnected then
 						isConnected = false
@@ -1021,4 +1075,16 @@ task.spawn(function()
 end)
 
 updateButtonState()
-print("[MCP] Plugin loaded")
+
+-- Expose setApiKey globally so users can set it from command bar
+-- Usage: _G.MCP_SetApiKey("your-api-key-here")
+_G.MCP_SetApiKey = setApiKey
+_G.MCP_GetApiKey = function()
+	return apiKey and string.sub(apiKey, 1, 8) .. "..." or "not set"
+end
+
+if apiKey then
+	print("[MCP] Plugin loaded (API key configured)")
+else
+	print("[MCP] Plugin loaded (API key NOT set - run _G.MCP_SetApiKey('your-key') in command bar)")
+end

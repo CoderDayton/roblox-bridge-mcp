@@ -10,6 +10,8 @@ export interface Config {
   timeout: number;
   /** Number of retry attempts for failed commands (default: 2) */
   retries: number;
+  /** API key for bridge server authentication (optional, generates random if not set) */
+  apiKey: string;
 }
 
 function parseNumber(value: string | undefined, defaultValue: number): number {
@@ -18,8 +20,14 @@ function parseNumber(value: string | undefined, defaultValue: number): number {
   return isNaN(parsed) ? defaultValue : parsed;
 }
 
+/** Generate a random API key */
+function generateApiKey(): string {
+  return crypto.randomUUID().replace(/-/g, "");
+}
+
 export const config: Config = {
   bridgePort: parseNumber(process.env.ROBLOX_BRIDGE_PORT, 8081),
   timeout: parseNumber(process.env.ROBLOX_TIMEOUT_MS, 30_000),
   retries: parseNumber(process.env.ROBLOX_RETRIES, 2),
+  apiKey: process.env.ROBLOX_API_KEY || generateApiKey(),
 };
