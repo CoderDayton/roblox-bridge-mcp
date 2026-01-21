@@ -28,7 +28,10 @@
     "dev": "bun run src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target node",
     "inspect": "bunx fastmcp inspect src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage"
   },
   "dependencies": {
     "fastmcp": "^1.20.5",
