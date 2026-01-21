@@ -46,6 +46,7 @@
     "prepublishOnly": "bun run typecheck && bun test"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "fastmcp": "^1.20.5",
     "zod": "^3.24.4"
   },

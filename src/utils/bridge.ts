@@ -1,5 +1,6 @@
 import { EventEmitter } from "events";
 import { RobloxTimeoutError, RobloxExecutionError } from "./errors";
+import { config } from "../config";
 
 export interface RobloxCommand {
   id: string;
@@ -13,9 +14,6 @@ export interface RobloxResult {
   data: unknown;
   error?: string;
 }
-
-const TIMEOUT_MS = 30_000;
-const BRIDGE_PORT = 8081;
 
 class RobloxBridge extends EventEmitter {
   private commandQueue: RobloxCommand[] = [];
@@ -33,7 +31,7 @@ class RobloxBridge extends EventEmitter {
       const timeout = setTimeout(() => {
         this.pendingResponses.delete(id);
         reject(new RobloxTimeoutError());
-      }, TIMEOUT_MS);
+      }, config.timeout);
 
       this.pendingResponses.set(id, (result) => {
         clearTimeout(timeout);
@@ -73,7 +71,7 @@ export const bridge = new RobloxBridge();
 /** Start the HTTP bridge server for Roblox plugin communication */
 export function startBridgeServer(): void {
   Bun.serve({
-    port: BRIDGE_PORT,
+    port: config.bridgePort,
     fetch(req) {
       const url = new URL(req.url);
 
@@ -95,5 +93,5 @@ export function startBridgeServer(): void {
     },
   });
 
-  console.error(`[Bridge] Roblox bridge server running on port ${BRIDGE_PORT}`);
+  console.error(`[Bridge] Roblox bridge server running on port ${config.bridgePort}`);
 }
