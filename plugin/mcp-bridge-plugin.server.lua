@@ -165,6 +165,72 @@ local function createButton(props)
 	return container
 end
 
+--------------------------------------------------------------------------------
+-- Reactive Store (State Management)
+--------------------------------------------------------------------------------
+
+local function createStore(initialState)
+	local state = {}
+	local listeners = {}
+	
+	-- Copy initial state
+	for key, value in pairs(initialState) do
+		state[key] = value
+	end
+	
+	local store = {}
+	
+	-- Get current state value
+	function store:get(key)
+		return state[key]
+	end
+	
+	-- Get entire state
+	function store:getState()
+		local copy = {}
+		for k, v in pairs(state) do
+			copy[k] = v
+		end
+		return copy
+	end
+	
+	-- Set state value(s) and notify listeners
+	function store:set(updates)
+		local changed = {}
+		
+		for key, value in pairs(updates) do
+			if state[key] ~= value then
+				state[key] = value
+				changed[key] = value
+			end
+		end
+		
+		-- Notify all listeners of changes
+		if next(changed) then
+			for _, listener in pairs(listeners) do
+				listener(changed, state)
+			end
+		end
+	end
+	
+	-- Subscribe to state changes
+	function store:subscribe(listener)
+		table.insert(listeners, listener)
+		
+		-- Return unsubscribe function
+		return function()
+			for i, l in pairs(listeners) do
+				if l == listener then
+					table.remove(listeners, i)
+					break
+				end
+			end
+		end
+	end
+	
+	return store
+end
+
 -- Create UI
 local function createUI(props)
 	local startTime = os.time()
@@ -690,72 +756,6 @@ end
 apiKey = getApiKey()
 
 --------------------------------------------------------------------------------
--- Reactive Store (State Management)
---------------------------------------------------------------------------------
-
-local function createStore(initialState)
-	local state = {}
-	local listeners = {}
-	
-	-- Copy initial state
-	for key, value in pairs(initialState) do
-		state[key] = value
-	end
-	
-	local store = {}
-	
-	-- Get current state value
-	function store:get(key)
-		return state[key]
-	end
-	
-	-- Get entire state
-	function store:getState()
-		local copy = {}
-		for k, v in pairs(state) do
-			copy[k] = v
-		end
-		return copy
-	end
-	
-	-- Set state value(s) and notify listeners
-	function store:set(updates)
-		local changed = {}
-		
-		for key, value in pairs(updates) do
-			if state[key] ~= value then
-				state[key] = value
-				changed[key] = value
-			end
-		end
-		
-		-- Notify all listeners of changes
-		if next(changed) then
-			for _, listener in pairs(listeners) do
-				listener(changed, state)
-			end
-		end
-	end
-	
-	-- Subscribe to state changes
-	function store:subscribe(listener)
-		table.insert(listeners, listener)
-		
-		-- Return unsubscribe function
-		return function()
-			for i, l in pairs(listeners) do
-				if l == listener then
-					table.remove(listeners, i)
-					break
-				end
-			end
-		end
-	end
-	
-	return store
-end
-
---------------------------------------------------------------------------------
 -- UI Creation
 --------------------------------------------------------------------------------
 
@@ -763,7 +763,7 @@ local toolbar = plugin:CreateToolbar("MCP Bridge")
 local toggleButton = toolbar:CreateButton(
 	"MCP Toggle",
 	"Toggle MCP Bridge UI",
-	"rbxassetid://4458901886"
+	""
 )
 toggleButton.ClickableWhenViewportHidden = true
 
