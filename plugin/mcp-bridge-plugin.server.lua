@@ -450,7 +450,7 @@ local function createUI(props)
 	local undoBtn = createButton({
 		name = "Undo",
 		text = "Undo",
-		onClick = function() ChangeHistoryService:Undo() end,
+		onClick = function() pcall(function() ChangeHistoryService:Undo() end) end,
 	})
 	undoBtn.LayoutOrder = 1
 	undoBtn.Parent = buttonsFrame
@@ -458,7 +458,7 @@ local function createUI(props)
 	local redoBtn = createButton({
 		name = "Redo",
 		text = "Redo",
-		onClick = function() ChangeHistoryService:Redo() end,
+		onClick = function() pcall(function() ChangeHistoryService:Redo() end) end,
 	})
 	redoBtn.LayoutOrder = 2
 	redoBtn.Parent = buttonsFrame
