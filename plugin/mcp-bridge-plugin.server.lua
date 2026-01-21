@@ -729,6 +729,18 @@ local function createUI(props)
 		entryCount = 0
 	end
 
+	-- Uptime updater (runs in background)
+	task.spawn(function()
+		while true do
+			local elapsed = os.time() - startTime
+			local h = math.floor(elapsed / 3600)
+			local m = math.floor((elapsed % 3600) / 60)
+			local s = elapsed % 60
+			uiStore:set({ uptime = string.format("%02d:%02d:%02d", h, m, s) })
+			task.wait(1)
+		end
+	end)
+
 	return api
 end
 
@@ -815,19 +827,15 @@ end)
 
 local function discoverServerPort()
 	local port = CONFIG.BASE_PORT
-	local testUrl = "http://localhost:" .. port
+	local testUrl = "http://localhost:" .. port .. "/health"
 	
 	local success, response = pcall(function()
-		return HttpService:RequestAsync({
-			Url = testUrl .. "/health",
-			Method = "GET",
-			Headers = { ["Accept"] = "application/json" }
-		})
+		return HttpService:GetAsync(testUrl, false)
 	end)
 	
-	if success and response.Success and response.StatusCode == 200 then
+	if success then
 		local ok, data = pcall(function()
-			return HttpService:JSONDecode(response.Body)
+			return HttpService:JSONDecode(response)
 		end)
 		
 		if ok and data and data.service == "roblox-bridge-mcp" then
