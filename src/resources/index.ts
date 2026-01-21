@@ -1,0 +1,191 @@
+import type { FastMCP } from "fastmcp";
+import { bridge, getActiveBridgePort } from "../utils/bridge";
+import { config } from "../config";
+
+/** All available Roblox methods with descriptions */
+const METHODS = {
+  // Instance management
+  CreateInstance: "Create a new Roblox instance (className, parentPath, name?, properties?)",
+  DeleteInstance: "Delete an instance at the specified path",
+  CloneInstance: "Clone an instance to a new parent (path, parentPath?)",
+  RenameInstance: "Rename an instance (path, newName)",
+
+  // Properties
+  SetProperty: "Set a property on an instance (path, property, value)",
+  GetProperty: "Get a property value from an instance (path, property)",
+
+  // Hierarchy
+  GetChildren: "Get direct children of an instance (path)",
+  GetDescendants: "Get all descendants of an instance (path)",
+  FindFirstChild: "Find a child by name (path, name, recursive?)",
+  GetService: "Get a Roblox service (service)",
+
+  // Transforms
+  MoveTo: "Move instance to position (path, position[x,y,z])",
+  SetPosition: "Set absolute position (path, x, y, z)",
+  SetRotation: "Set rotation in degrees (path, x, y, z)",
+  SetSize: "Set size (path, x, y, z)",
+  PivotTo: "Set CFrame via 12-element array (path, cframe[12])",
+  GetPivot: "Get CFrame as 12-element array (path)",
+
+  // Appearance
+  SetColor: "Set BrickColor or Color3 (path, color)",
+  SetTransparency: "Set transparency 0-1 (path, transparency)",
+  SetMaterial: "Set material enum (path, material)",
+
+  // Physics
+  SetAnchored: "Set anchored state (path, anchored)",
+  SetCanCollide: "Set collision state (path, canCollide)",
+
+  // Scripting
+  CreateScript: "Create a script (parentPath, source, scriptType?, name?)",
+  GetScriptSource: "Get script source code (path)",
+  SetScriptSource: "Replace entire script source (path, source)",
+  AppendToScript: "Append code to script (path, code)",
+  ReplaceScriptLines: "Replace specific lines (path, startLine, endLine, newCode)",
+  InsertScriptLines: "Insert lines at position (path, atLine, code)",
+  RunConsoleCommand: "Execute Lua in command bar (command)",
+
+  // Selection
+  GetSelection: "Get currently selected instances",
+  SetSelection: "Set selection to specific paths (paths[])",
+  ClearSelection: "Clear all selection",
+  AddToSelection: "Add instance to selection (path)",
+  GroupSelection: "Group selected instances into Model (name?)",
+  UngroupModel: "Ungroup a model (path)",
+
+  // Lighting
+  SetTimeOfDay: "Set time of day (time string)",
+  SetBrightness: "Set lighting brightness (brightness)",
+  SetAtmosphereDensity: "Set atmosphere density (density)",
+  CreateLight: "Create light instance (parentPath, lightType, properties?)",
+
+  // Attributes & Tags
+  SetAttribute: "Set instance attribute (path, name, value)",
+  GetAttribute: "Get instance attribute (path, name)",
+  GetAttributes: "Get all attributes on instance (path)",
+  AddTag: "Add CollectionService tag (path, tag)",
+  RemoveTag: "Remove CollectionService tag (path, tag)",
+  GetTags: "Get all tags on instance (path)",
+  HasTag: "Check if instance has tag (path, tag)",
+
+  // Players
+  GetPlayers: "Get list of players in game",
+  GetPlayerPosition: "Get player character position (playerName)",
+  TeleportPlayer: "Teleport player to position (playerName, x, y, z)",
+  KickPlayer: "Kick player from game (playerName, reason?)",
+
+  // Place
+  SavePlace: "Save the current place",
+  GetPlaceInfo: "Get place name, ID, and metadata",
+
+  // Audio
+  PlaySound: "Play a sound (soundId, parentPath?, properties?)",
+  StopSound: "Stop a playing sound (path)",
+
+  // Utilities
+  GetDistance: "Get distance between two instances (path1, path2)",
+  HighlightObject: "Add highlight effect to instance (path, color?, duration?)",
+  Chat: "Send chat message (message)",
+} as const;
+
+/** Register all MCP resources */
+export function registerResources(server: FastMCP): void {
+  // Bridge status resource - shows connection state and diagnostics
+  server.addResource({
+    uri: "roblox://bridge/status",
+    name: "Bridge Status",
+    description: "Current bridge server status, connection state, and diagnostics",
+    mimeType: "application/json",
+    async load() {
+      const port = getActiveBridgePort();
+      const connected = bridge.isConnected();
+      const pendingCommands = bridge.pendingCount;
+
+      const status = {
+        bridge: {
+          running: port !== null,
+          port,
+          preferredPort: config.bridgePort,
+          usingFallback: port !== null && port !== config.bridgePort,
+        },
+        connection: {
+          pluginConnected: connected,
+          pendingCommands,
+          status: !port ? "bridge_not_running" : connected ? "connected" : "waiting_for_plugin",
+        },
+        config: {
+          timeout: config.timeout,
+          retries: config.retries,
+        },
+        uptime: process.uptime(),
+      };
+
+      return {
+        text: JSON.stringify(status, null, 2),
+      };
+    },
+  });
+
+  // Capabilities resource - lists all available methods
+  server.addResource({
+    uri: "roblox://capabilities",
+    name: "Roblox Capabilities",
+    description: "List of all available Roblox methods and their parameters",
+    mimeType: "application/json",
+    async load() {
+      const capabilities = {
+        totalMethods: Object.keys(METHODS).length,
+        methods: METHODS,
+        categories: {
+          "Instance Management": [
+            "CreateInstance",
+            "DeleteInstance",
+            "CloneInstance",
+            "RenameInstance",
+          ],
+          Properties: ["SetProperty", "GetProperty"],
+          Hierarchy: ["GetChildren", "GetDescendants", "FindFirstChild", "GetService"],
+          Transforms: ["MoveTo", "SetPosition", "SetRotation", "SetSize", "PivotTo", "GetPivot"],
+          Appearance: ["SetColor", "SetTransparency", "SetMaterial"],
+          Physics: ["SetAnchored", "SetCanCollide"],
+          Scripting: [
+            "CreateScript",
+            "GetScriptSource",
+            "SetScriptSource",
+            "AppendToScript",
+            "ReplaceScriptLines",
+            "InsertScriptLines",
+            "RunConsoleCommand",
+          ],
+          Selection: [
+            "GetSelection",
+            "SetSelection",
+            "ClearSelection",
+            "AddToSelection",
+            "GroupSelection",
+            "UngroupModel",
+          ],
+          Lighting: ["SetTimeOfDay", "SetBrightness", "SetAtmosphereDensity", "CreateLight"],
+          "Attributes & Tags": [
+            "SetAttribute",
+            "GetAttribute",
+            "GetAttributes",
+            "AddTag",
+            "RemoveTag",
+            "GetTags",
+            "HasTag",
+          ],
+          Players: ["GetPlayers", "GetPlayerPosition", "TeleportPlayer", "KickPlayer"],
+          Place: ["SavePlace", "GetPlaceInfo"],
+          Audio: ["PlaySound", "StopSound"],
+          Utilities: ["GetDistance", "HighlightObject", "Chat"],
+        },
+      };
+
+      return {
+        text: JSON.stringify(capabilities, null, 2),
+      };
+    },
+  });
+}

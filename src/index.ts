@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { FastMCP } from "fastmcp";
 import { startBridgeServer } from "./utils/bridge";
-import { registerAllTools } from "./tools";
+import { registerAllTools, registerResources } from "./tools";
 import { logger } from "./utils/logger";
 
 const server = new FastMCP({
@@ -9,9 +9,10 @@ const server = new FastMCP({
   version: "1.0.0",
 });
 
-// Register all Roblox tools
+// Register all Roblox tools and resources
 registerAllTools(server);
-logger.server.info("Registered all Roblox tools");
+registerResources(server);
+logger.server.info("Registered all Roblox tools and resources");
 
 // Start the HTTP bridge for Roblox plugin communication (non-blocking)
 // The MCP server will start regardless of bridge success
