@@ -42,7 +42,7 @@
     "test:coverage": "bun test --coverage",
     "format": "bunx prettier --write .",
     "format:check": "bunx prettier --check .",
-    "prepare": "lefthook install",
+    "prepare": "command -v lefthook >/dev/null 2>&1 && lefthook install || true",
     "prepublishOnly": "bun run typecheck && bun test"
   },
   "dependencies": {
