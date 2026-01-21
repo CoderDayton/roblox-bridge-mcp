@@ -1775,6 +1775,12 @@ task.spawn(function()
 				end)
 
 				if not success then
+					-- ConnectionClosed is normal for long-poll timeout, just retry
+					if string.find(tostring(response), "ConnectionClosed") then
+						-- Normal timeout, just continue polling
+						task.wait(0.1)
+						continue
+					end
 					print("[MCP] Poll failed: " .. tostring(response))
 				end
 
