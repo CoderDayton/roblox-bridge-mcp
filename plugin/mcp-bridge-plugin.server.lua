@@ -730,23 +730,63 @@ end)
 --------------------------------------------------------------------------------
 
 local function discoverServerPort()
-	for port = CONFIG.BASE_PORT, CONFIG.BASE_PORT + CONFIG.PORT_RANGE - 1 do
+	-- Try common ports first (these work 80% of the time)
+	local commonPorts = {8081, 8082, 8083}
+	
+	-- Fast check common ports
+	for _, port in ipairs(commonPorts) do
 		local testUrl = "http://localhost:" .. port
 		local success, response = pcall(function()
-			return HttpService:GetAsync(testUrl .. "/health", false)
+			return HttpService:RequestAsync({
+				Url = testUrl .. "/health",
+				Method = "GET",
+				Headers = { ["Accept"] = "application/json" }
+			})
 		end)
 		
-		if success then
+		if success and response.Success and response.StatusCode == 200 then
 			local ok, data = pcall(function()
-				return HttpService:JSONDecode(response)
+				return HttpService:JSONDecode(response.Body)
 			end)
 			
 			if ok and data and data.service == "roblox-bridge-mcp" then
-				print(string.format("[MCP] Found bridge server on port %d", port))
 				return port
 			end
 		end
 	end
+	
+	-- Fallback: scan remaining uncommon ports
+	for port = CONFIG.BASE_PORT, CONFIG.BASE_PORT + CONFIG.PORT_RANGE - 1 do
+		local isCommon = false
+		for _, commonPort in ipairs(commonPorts) do
+			if port == commonPort then
+				isCommon = true
+				break
+			end
+		end
+		
+		if not isCommon then
+			local testUrl = "http://localhost:" .. port
+			local success, response = pcall(function()
+				return HttpService:RequestAsync({
+					Url = testUrl .. "/health",
+					Method = "GET",
+					Headers = { ["Accept"] = "application/json" }
+				})
+			end)
+			
+			if success and response.Success and response.StatusCode == 200 then
+				local ok, data = pcall(function()
+					return HttpService:JSONDecode(response.Body)
+				end)
+				
+				if ok and data and data.service == "roblox-bridge-mcp" then
+					return port
+				end
+			end
+		end
+	end
+	
 	return nil
 end
 

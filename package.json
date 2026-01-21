@@ -43,7 +43,8 @@
     "format": "bunx prettier --write .",
     "format:check": "bunx prettier --check .",
     "prepare": "lefthook install",
-    "prepublishOnly": "bun run typecheck && bun test"
+    "prepublishOnly": "bun run typecheck && bun test",
+    "build": "tsc --outDir dist"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

@@ -429,6 +429,19 @@ export function startBridgeServer(): void {
             ? `port ${port}`
             : `port ${port} (preferred ${preferredPort} was in use)`;
 
+        // Write port to file for fast plugin discovery
+        const portFile =
+          process.platform === "win32"
+            ? `${process.env.LOCALAPPDATA}\\Temp\\roblox-mcp-port.txt`
+            : `/tmp/roblox-mcp-port.txt`;
+
+        try {
+          require("fs").writeFileSync(portFile, String(port), "utf8");
+          logger.bridge.debug("Wrote port file", { path: portFile, port });
+        } catch (err) {
+          logger.bridge.warn("Failed to write port file", { error: String(err) });
+        }
+
         console.error(`[Bridge] Roblox bridge server running on ${portInfo}`);
         console.error(`[Bridge] API Key: ${config.apiKey}`);
         console.error(`[Bridge] Set this key in your Roblox plugin to connect`);
