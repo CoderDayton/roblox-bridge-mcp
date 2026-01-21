@@ -167,26 +167,22 @@ end
 
 -- Create UI
 local function createUI(props)
-	local pluginInstance = props.plugin or error("plugin is required")
+	local startTime = os.time()
 	local version = props.version or "1.0.0"
 	local onReconnect = props.onReconnect or function() end
 	local onRestart = props.onRestart or function() end
-	local onSaveKey = props.onSaveKey or function() end
-	local getCurrentKey = props.getCurrentKey or function() return "not set" end
+	local entryCount = 0
+	local maxEntries = 100
 
-	local widgetInfo = DockWidgetPluginGuiInfo.new(
-		Enum.InitialDockState.Right,
-		false,
-		false,
-		320,
-		500,
-		280,
-		400
-	)
-
-	local widget = pluginInstance:CreateDockWidgetPluginGui("MCPBridgeWidget", widgetInfo)
-	widget.Title = "MCP Bridge"
-	widget.Name = "MCPBridgeWidget"
+	-- Create reactive store for UI state
+	local uiStore = createStore({
+		connected = false,
+		host = "localhost",
+		port = "-",
+		commands = 0,
+		uptime = "00:00:00",
+		apiKey = props.getCurrentKey(),
+	})
 
 	local container = Instance.new("Frame")
 	container.Name = "Container"
@@ -309,6 +305,42 @@ local function createUI(props)
 	end
 
 	metrics["Status"].TextColor3 = COLORS.disconnected
+
+	-- Subscribe to store changes to update UI reactively
+	uiStore:subscribe(function(changed, state)
+		-- Update connection status
+		if changed.connected ~= nil then
+			local color = state.connected and COLORS.connected or COLORS.disconnected
+			TweenService:Create(indicator, TWEEN_SLOW, { BackgroundColor3 = color }):Play()
+			metrics["Status"].Text = state.connected and "Connected" or "Disconnected"
+			TweenService:Create(metrics["Status"], TWEEN_SLOW, { TextColor3 = color }):Play()
+		end
+		
+		-- Update host
+		if changed.host then
+			metrics["Host"].Text = state.host
+		end
+		
+		-- Update port
+		if changed.port then
+			metrics["Port"].Text = tostring(state.port)
+		end
+		
+		-- Update commands count
+		if changed.commands then
+			metrics["Commands"].Text = tostring(state.commands)
+		end
+		
+		-- Update uptime
+		if changed.uptime then
+			metrics["Uptime"].Text = state.uptime
+		end
+		
+		-- Update API key display
+		if changed.apiKey then
+			statusLabel.Text = "Current: " .. (state.apiKey and string.sub(state.apiKey, 1, 8) .. "..." or "not set")
+		end
+	end)
 
 	local startTime = tick()
 	RunService.Heartbeat:Connect(function()
@@ -541,22 +573,11 @@ local function createUI(props)
 	end
 
 	function api.setConnectionState(connected, host, port)
-		local color = connected and COLORS.connected or COLORS.disconnected
-
-		-- Update indicator in status panel
-		TweenService:Create(indicator, TWEEN_SLOW, { BackgroundColor3 = color }):Play()
-
-		if connected then
-			metrics["Status"].Text = "Connected"
-			TweenService:Create(metrics["Status"], TWEEN_SLOW, { TextColor3 = COLORS.connected }):Play()
-			metrics["Host"].Text = host or "localhost"
-			metrics["Port"].Text = tostring(port or "-")
-		else
-			metrics["Status"].Text = "Disconnected"
-			TweenService:Create(metrics["Status"], TWEEN_SLOW, { TextColor3 = COLORS.disconnected }):Play()
-			metrics["Host"].Text = "localhost"
-			metrics["Port"].Text = "-"
-		end
+		uiStore:set({
+			connected = connected,
+			host = host or "localhost",
+			port = port or "-",
+		})
 	end
 
 	function api.addCommand(method, success)
@@ -631,7 +652,7 @@ local function createUI(props)
 			end
 		end
 
-		metrics["Commands"].Text = tostring(entryCount)
+		uiStore:set({ commands = entryCount })
 	end
 
 	function api.clearHistory()
@@ -669,7 +690,84 @@ end
 apiKey = getApiKey()
 
 --------------------------------------------------------------------------------
--- UI Setup
+-- Reactive Store (State Management)
+--------------------------------------------------------------------------------
+
+local function createStore(initialState)
+	local state = {}
+	local listeners = {}
+	
+	-- Copy initial state
+	for key, value in pairs(initialState) do
+		state[key] = value
+	end
+	
+	local store = {}
+	
+	-- Get current state value
+	function store:get(key)
+		return state[key]
+	end
+	
+	-- Get entire state
+	function store:getState()
+		local copy = {}
+		for k, v in pairs(state) do
+			copy[k] = v
+		end
+		return copy
+	end
+	
+	-- Set state value(s) and notify listeners
+	function store:set(updates)
+		local changed = {}
+		
+		-- Single key-value pair
+		if type(updates) == "string" then
+			local key = updates
+			local value = select(2, ...)
+			if state[key] ~= value then
+				state[key] = value
+				changed[key] = value
+			end
+		-- Multiple updates as table
+		else
+			for key, value in pairs(updates) do
+				if state[key] ~= value then
+					state[key] = value
+					changed[key] = value
+				end
+			end
+		end
+		
+		-- Notify all listeners of changes
+		if next(changed) then
+			for _, listener in pairs(listeners) do
+				listener(changed, state)
+			end
+		end
+	end
+	
+	-- Subscribe to state changes
+	function store:subscribe(listener)
+		table.insert(listeners, listener)
+		
+		-- Return unsubscribe function
+		return function()
+			for i, l in pairs(listeners) do
+				if l == listener then
+					table.remove(listeners, i)
+					break
+				end
+			end
+		end
+	end
+	
+	return store
+end
+
+--------------------------------------------------------------------------------
+-- UI Creation
 --------------------------------------------------------------------------------
 
 local toolbar = plugin:CreateToolbar("MCP Bridge")
