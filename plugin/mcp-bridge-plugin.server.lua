@@ -722,21 +722,10 @@ local function createStore(initialState)
 	function store:set(updates)
 		local changed = {}
 		
-		-- Single key-value pair
-		if type(updates) == "string" then
-			local key = updates
-			local value = select(2, ...)
+		for key, value in pairs(updates) do
 			if state[key] ~= value then
 				state[key] = value
 				changed[key] = value
-			end
-		-- Multiple updates as table
-		else
-			for key, value in pairs(updates) do
-				if state[key] ~= value then
-					state[key] = value
-					changed[key] = value
-				end
 			end
 		end
 		
@@ -774,7 +763,7 @@ local toolbar = plugin:CreateToolbar("MCP Bridge")
 local toggleButton = toolbar:CreateButton(
 	"MCP Toggle",
 	"Toggle MCP Bridge UI",
-	"rbxassetid://6031280882"
+	"rbxassetid://4458901886"
 )
 toggleButton.ClickableWhenViewportHidden = true
 
