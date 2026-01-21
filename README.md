@@ -88,12 +88,14 @@ You can configure the bridge server behavior using environment variables. Create
 | -------------------- | --------------------------------------------- | ------- |
 | `ROBLOX_BRIDGE_PORT` | Port for the HTTP bridge server               | `8081`  |
 | `ROBLOX_TIMEOUT_MS`  | Timeout in milliseconds for command execution | `30000` |
+| `ROBLOX_RETRIES`     | Number of retry attempts for failed commands  | `2`     |
 
 **Example `.env` file:**
 
 ```bash
 ROBLOX_BRIDGE_PORT=8081
 ROBLOX_TIMEOUT_MS=30000
+ROBLOX_RETRIES=2
 ```
 
 **MCP Client Configuration:**
@@ -106,6 +108,7 @@ ROBLOX_TIMEOUT_MS=30000
       "args": ["-y", "roblox-bridge-mcp"],
       "env": {
         "ROBLOX_BRIDGE_PORT": "8081",
+        "ROBLOX_RETRIES": "2",
         "ROBLOX_TIMEOUT_MS": "30000"
       }
     }

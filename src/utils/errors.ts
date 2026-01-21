@@ -4,7 +4,11 @@
 
 /** Error thrown when Roblox Studio is not responding or plugin is not running */
 export class RobloxTimeoutError extends Error {
-  constructor(message = "Roblox Studio execution timed out. Is the plugin running?") {
+  constructor(
+    message = "Roblox Studio execution timed out. Ensure the plugin is installed and Studio is running.",
+    public readonly method?: string,
+    public readonly attempt?: number
+  ) {
     super(message);
     this.name = "RobloxTimeoutError";
   }
@@ -20,7 +24,10 @@ export class InstanceNotFoundError extends Error {
 
 /** Error thrown when a tool receives invalid parameters */
 export class InvalidParameterError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    public readonly method?: string
+  ) {
     super(message);
     this.name = "InvalidParameterError";
   }
@@ -28,8 +35,20 @@ export class InvalidParameterError extends Error {
 
 /** Error thrown when Roblox reports an execution error */
 export class RobloxExecutionError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    public readonly method?: string,
+    public readonly params?: Record<string, unknown>
+  ) {
     super(message);
     this.name = "RobloxExecutionError";
+  }
+}
+
+/** Error thrown when the bridge server cannot be reached */
+export class BridgeConnectionError extends Error {
+  constructor(message = "Cannot connect to Roblox bridge. Is the server running?") {
+    super(message);
+    this.name = "BridgeConnectionError";
   }
 }

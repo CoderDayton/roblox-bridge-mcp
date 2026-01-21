@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { FastMCP } from "fastmcp";
 import { bridge } from "../utils/bridge";
+import { config } from "../config";
 
 const METHODS = [
   "CreateInstance",
@@ -128,7 +129,7 @@ export function registerAllTools(server: FastMCP): void {
       params: z.record(z.unknown()).default({}),
     }),
     execute: async ({ method, params }) => {
-      const result = await bridge.execute(method, params);
+      const result = await bridge.execute(method, params, config.retries);
       return typeof result === "string" ? result : JSON.stringify(result, null, 2);
     },
   });

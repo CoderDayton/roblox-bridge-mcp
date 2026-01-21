@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { RobloxTimeoutError, RobloxExecutionError } from "./errors";
+import { RobloxTimeoutError, RobloxExecutionError, BridgeConnectionError } from "./errors";
 import { config } from "../config";
 
 export interface RobloxCommand {
@@ -18,9 +18,50 @@ export interface RobloxResult {
 class RobloxBridge extends EventEmitter {
   private commandQueue: RobloxCommand[] = [];
   private pendingResponses = new Map<string, (result: RobloxResult) => void>();
+  private lastPollTime = 0;
 
-  /** Execute a command and wait for Roblox response */
-  async execute<T = unknown>(method: string, params: Record<string, unknown>): Promise<T> {
+  /** Check if bridge appears to be connected (plugin is polling) */
+  isConnected(): boolean {
+    return Date.now() - this.lastPollTime < 10_000; // 10 second window
+  }
+
+  /** Execute a command and wait for Roblox response with retry logic */
+  async execute<T = unknown>(
+    method: string,
+    params: Record<string, unknown>,
+    retries = 1
+  ): Promise<T> {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await this.executeOnce<T>(method, params, attempt + 1);
+      } catch (error) {
+        const isLastAttempt = attempt === retries;
+        const isTimeout = error instanceof RobloxTimeoutError;
+
+        // Only retry on timeout errors
+        if (isTimeout && !isLastAttempt) {
+          console.error(
+            `[Bridge] Timeout on attempt ${attempt + 1}/${retries + 1} for ${method}, retrying...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // 1s delay between retries
+          continue;
+        }
+
+        // Re-throw with context
+        throw error;
+      }
+    }
+
+    // TypeScript doesn't know the loop always returns or throws
+    throw new RobloxTimeoutError(`Failed after ${retries + 1} attempts`, method, retries + 1);
+  }
+
+  /** Execute a command once (internal) */
+  private async executeOnce<T = unknown>(
+    method: string,
+    params: Record<string, unknown>,
+    attempt: number
+  ): Promise<T> {
     const id = crypto.randomUUID().slice(0, 8);
     const command: RobloxCommand = { id, method, params };
 
@@ -30,7 +71,10 @@ class RobloxBridge extends EventEmitter {
     return new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingResponses.delete(id);
-        reject(new RobloxTimeoutError());
+        const errorMsg = this.isConnected()
+          ? `Command '${method}' timed out after ${config.timeout}ms (attempt ${attempt})`
+          : `Command '${method}' timed out. Roblox Studio plugin is not connected. Please ensure the plugin is installed and Studio is running.`;
+        reject(new RobloxTimeoutError(errorMsg, method, attempt));
       }, config.timeout);
 
       this.pendingResponses.set(id, (result) => {
@@ -38,7 +82,8 @@ class RobloxBridge extends EventEmitter {
         if (result.success) {
           resolve(result.data as T);
         } else {
-          reject(new RobloxExecutionError(result.error ?? "Unknown Roblox error"));
+          const errorMsg = `Roblox error in '${method}': ${result.error ?? "Unknown error"}`;
+          reject(new RobloxExecutionError(errorMsg, method, params));
         }
       });
     });
@@ -46,6 +91,7 @@ class RobloxBridge extends EventEmitter {
 
   /** Get pending commands (called by Roblox plugin via HTTP) */
   getPendingCommands(): RobloxCommand[] {
+    this.lastPollTime = Date.now(); // Track connection
     const commands = [...this.commandQueue];
     this.commandQueue = [];
     return commands;
