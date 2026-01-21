@@ -534,7 +534,7 @@ local function createUI(props)
 	statusLabel.Size = UDim2.new(1, -24, 0, 22)
 	statusLabel.Position = UDim2.new(0, 12, 0, 78)
 	statusLabel.BackgroundTransparency = 1
-	statusLabel.Text = "Current: " .. getCurrentKey()
+				statusLabel.Text = "Current: " .. props.getCurrentKey()
 	statusLabel.TextColor3 = COLORS.textDim
 	statusLabel.TextSize = 14
 	statusLabel.FontFace = FONTS.Regular
@@ -573,7 +573,7 @@ local function createUI(props)
 			TweenService:Create(statusLabel, TWEEN_INFO, { TextColor3 = COLORS.success }):Play()
 			inputBox.Text = ""
 			task.delay(2, function()
-				statusLabel.Text = "Current: " .. getCurrentKey()
+	statusLabel.Text = "Current: " .. props.getCurrentKey()
 				TweenService:Create(statusLabel, TWEEN_INFO, { TextColor3 = COLORS.textDim }):Play()
 			end)
 		end
