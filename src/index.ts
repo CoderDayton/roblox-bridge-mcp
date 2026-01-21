@@ -13,7 +13,8 @@ const server = new FastMCP({
 registerAllTools(server);
 logger.server.info("Registered all Roblox tools");
 
-// Start the HTTP bridge for Roblox plugin communication
+// Start the HTTP bridge for Roblox plugin communication (non-blocking)
+// The MCP server will start regardless of bridge success
 startBridgeServer();
 
 // Start MCP server (stdio transport for Claude Desktop / local agents)

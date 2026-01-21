@@ -1,11 +1,34 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import type { Server } from "bun";
 
+// Helper to find an available port in test range
+async function findAvailablePort(startPort: number, maxAttempts: number = 10): Promise<number> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const port = startPort + i;
+    try {
+      const testServer = Bun.serve({
+        port,
+        fetch() {
+          return new Response("test");
+        },
+      });
+      testServer.stop();
+      return port;
+    } catch (error) {
+      continue;
+    }
+  }
+  throw new Error(`No available ports found in range ${startPort}-${startPort + maxAttempts - 1}`);
+}
+
 describe("HTTP Bridge Integration", () => {
-  let mockServer: Server<any>;
-  const TEST_PORT = 8082;
+  let mockServer: Server<any> | undefined;
+  let TEST_PORT: number;
 
   beforeAll(async () => {
+    // Find available port in test range (30000+)
+    TEST_PORT = await findAvailablePort(30000);
+
     // Start a mock HTTP bridge server
     mockServer = Bun.serve({
       port: TEST_PORT,
@@ -34,7 +57,9 @@ describe("HTTP Bridge Integration", () => {
   });
 
   afterAll(() => {
-    mockServer.stop();
+    if (mockServer) {
+      mockServer.stop();
+    }
   });
 
   test("GET /poll returns commands", async () => {
@@ -101,8 +126,11 @@ describe("HTTP Bridge Integration", () => {
 
 describe("Error Handling", () => {
   test("handles malformed JSON in result", async () => {
+    // Find available port for this isolated test
+    const errorTestPort = await findAvailablePort(30100);
+
     const mockServer = Bun.serve({
-      port: 8083,
+      port: errorTestPort,
       fetch(req) {
         if (req.method === "POST" && new URL(req.url).pathname === "/result") {
           return req
@@ -118,7 +146,7 @@ describe("Error Handling", () => {
       },
     });
 
-    const response = await fetch("http://localhost:8083/result", {
+    const response = await fetch(`http://localhost:${errorTestPort}/result`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "invalid json{",

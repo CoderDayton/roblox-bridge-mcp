@@ -400,7 +400,14 @@ bun run build
 
 ## Contributing
 
-Contributions welcome! Please open an issue before submitting major changes.
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for guidelines on:
+
+- Setting up the development environment
+- Code standards and testing requirements
+- Pull request process
+- Adding new Roblox tools
+
+For major changes, please open an issue first to discuss your proposal.
 
 ## License
 

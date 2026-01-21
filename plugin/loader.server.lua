@@ -18,7 +18,8 @@ local TextChatService = game:GetService("TextChatService")
 --------------------------------------------------------------------------------
 
 local CONFIG = {
-	SERVER_URL = "http://localhost:8081",
+	BASE_PORT = 8081,
+	PORT_RANGE = 10, -- Try 8081-8090
 	POLL_INTERVAL = 0.3,
 	RETRY_INTERVAL = 2.0,
 	MAX_RETRY_INTERVAL = 10.0,
@@ -31,6 +32,8 @@ local CONFIG = {
 local isConnected = false
 local isEnabled = true
 local retryInterval = CONFIG.RETRY_INTERVAL
+local activePort = nil -- Will be discovered dynamically
+local serverUrl = nil -- Built from active port
 
 --------------------------------------------------------------------------------
 -- UI Setup
@@ -68,7 +71,35 @@ end)
 -- Utilities
 --------------------------------------------------------------------------------
 
+local function discoverServerPort()
+	-- Try to find an active MCP bridge server in the port range using health endpoint
+	for port = CONFIG.BASE_PORT, CONFIG.BASE_PORT + CONFIG.PORT_RANGE - 1 do
+		local testUrl = "http://localhost:" .. port
+		local success, response = pcall(function()
+			return HttpService:GetAsync(testUrl .. "/health", false)
+		end)
+		
+		if success then
+			-- Verify it's actually our MCP bridge server
+			local ok, data = pcall(function()
+				return HttpService:JSONDecode(response)
+			end)
+			
+			if ok and data and data.service == "roblox-bridge-mcp" then
+				print(string.format("[MCP] Found bridge server on port %d (connected: %s)", port, tostring(data.connected)))
+				return port
+			end
+		end
+	end
+	return nil
+end
+
 local function sendResult(id, success, data, err)
+	if not serverUrl then
+		warn("[MCP] Cannot send result: server URL not set")
+		return
+	end
+	
 	local payload = {
 		id = id,
 		success = success,
@@ -76,7 +107,7 @@ local function sendResult(id, success, data, err)
 		error = err,
 	}
 	pcall(function()
-		HttpService:PostAsync(CONFIG.SERVER_URL .. "/result", HttpService:JSONEncode(payload))
+		HttpService:PostAsync(serverUrl .. "/result", HttpService:JSONEncode(payload))
 	end)
 end
 
@@ -748,42 +779,61 @@ end
 --------------------------------------------------------------------------------
 
 task.spawn(function()
-	print("[MCP] Bridge started, polling " .. CONFIG.SERVER_URL)
+	print("[MCP] Bridge starting, discovering server port...")
 
 	while true do
 		if isEnabled then
-			local success, response = pcall(function()
-				return HttpService:GetAsync(CONFIG.SERVER_URL .. "/poll")
-			end)
-
-			if success then
-				if not isConnected then
-					isConnected = true
-					retryInterval = CONFIG.RETRY_INTERVAL
-					updateButtonState()
-					print("[MCP] Connected to server")
+			-- Auto-discover server port if not connected
+			if not isConnected and not activePort then
+				activePort = discoverServerPort()
+				if activePort then
+					serverUrl = "http://localhost:" .. activePort
+					print("[MCP] Discovered server on port " .. activePort)
+				else
+					print("[MCP] No server found on ports " .. CONFIG.BASE_PORT .. "-" .. (CONFIG.BASE_PORT + CONFIG.PORT_RANGE - 1))
+					task.wait(retryInterval)
+					retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
+					continue
 				end
+			end
 
-				local ok, commands = pcall(function()
-					return HttpService:JSONDecode(response)
+			-- Poll for commands
+			if serverUrl then
+				local success, response = pcall(function()
+					return HttpService:GetAsync(serverUrl .. "/poll")
 				end)
 
-				if ok and commands then
-					for _, cmd in pairs(commands) do
-						task.spawn(handleCommand, cmd)
+				if success then
+					if not isConnected then
+						isConnected = true
+						retryInterval = CONFIG.RETRY_INTERVAL
+						updateButtonState()
+						print("[MCP] Connected to server at " .. serverUrl)
 					end
-				end
 
-				task.wait(CONFIG.POLL_INTERVAL)
-			else
-				if isConnected then
-					isConnected = false
-					updateButtonState()
-					print("[MCP] Disconnected from server, retrying...")
-				end
+					local ok, commands = pcall(function()
+						return HttpService:JSONDecode(response)
+					end)
 
-				task.wait(retryInterval)
-				retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
+					if ok and commands then
+						for _, cmd in pairs(commands) do
+							task.spawn(handleCommand, cmd)
+						end
+					end
+
+					task.wait(CONFIG.POLL_INTERVAL)
+				else
+					if isConnected then
+						isConnected = false
+						activePort = nil -- Reset for rediscovery
+						serverUrl = nil
+						updateButtonState()
+						print("[MCP] Disconnected from server, will rediscover...")
+					end
+
+					task.wait(retryInterval)
+					retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
+				end
 			end
 		else
 			task.wait(0.5)

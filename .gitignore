@@ -45,6 +45,9 @@ lerna-debug.log*
 reference-project/
 reference-docs/
 
+# Agent configuration
+AGENTS.md
+
 # MCP specific
 .mcp/
 mcp-data/

@@ -120,31 +120,106 @@ class RobloxBridge extends EventEmitter {
 
 export const bridge = new RobloxBridge();
 
-/** Start the HTTP bridge server for Roblox plugin communication */
+/** Track the actual port the bridge server is running on */
+let activeBridgePort: number | null = null;
+
+/** Get the active bridge port (null if server failed to start) */
+export function getActiveBridgePort(): number | null {
+  return activeBridgePort;
+}
+
+/**
+ * Try to start server on a specific port
+ * @returns Server instance if successful, null if port is in use
+ */
+function tryStartServer(port: number): ReturnType<typeof Bun.serve> | null {
+  try {
+    const server = Bun.serve({
+      port,
+      fetch(req) {
+        const url = new URL(req.url);
+
+        // Health check endpoint for port discovery
+        if (req.method === "GET" && url.pathname === "/health") {
+          return Response.json({
+            status: "ok",
+            service: "roblox-bridge-mcp",
+            port,
+            connected: bridge.isConnected(),
+            uptime: process.uptime(),
+          });
+        }
+
+        // Roblox polls for commands
+        if (req.method === "GET" && url.pathname === "/poll") {
+          const commands = bridge.getPendingCommands();
+          return Response.json(commands);
+        }
+
+        // Roblox posts results
+        if (req.method === "POST" && url.pathname === "/result") {
+          return req.json().then((result: RobloxResult) => {
+            bridge.handleResult(result);
+            return Response.json({ status: "ok" });
+          });
+        }
+
+        return new Response("Not Found", { status: 404 });
+      },
+    });
+    return server;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "EADDRINUSE") {
+      return null; // Port in use, caller will try next
+    }
+    // Re-throw non-port-conflict errors
+    throw error;
+  }
+}
+
+/** Start the HTTP bridge server for Roblox plugin communication with automatic port fallback */
 export function startBridgeServer(): void {
-  Bun.serve({
-    port: config.bridgePort,
-    fetch(req) {
-      const url = new URL(req.url);
+  const preferredPort = config.bridgePort;
+  const maxPort = preferredPort + 9; // Try up to 10 ports (e.g., 8081-8090)
 
-      // Roblox polls for commands
-      if (req.method === "GET" && url.pathname === "/poll") {
-        const commands = bridge.getPendingCommands();
-        return Response.json(commands);
-      }
+  try {
+    // Try preferred port first, then fallback ports
+    for (let port = preferredPort; port <= maxPort; port++) {
+      const server = tryStartServer(port);
+      if (server) {
+        activeBridgePort = port;
+        const portInfo =
+          port === preferredPort
+            ? `port ${port}`
+            : `port ${port} (preferred ${preferredPort} was in use)`;
 
-      // Roblox posts results
-      if (req.method === "POST" && url.pathname === "/result") {
-        return req.json().then((result: RobloxResult) => {
-          bridge.handleResult(result);
-          return Response.json({ status: "ok" });
+        console.error(`[Bridge] Roblox bridge server running on ${portInfo}`);
+        logger.bridge.info("Roblox bridge server started", {
+          port,
+          preferredPort,
+          wasFallback: port !== preferredPort,
         });
+        return; // Success
       }
+    }
 
-      return new Response("Not Found", { status: 404 });
-    },
-  });
+    // All ports exhausted
+    throw new Error(
+      `All ports ${preferredPort}-${maxPort} are in use. Could not start bridge server.`
+    );
+  } catch (error) {
+    activeBridgePort = null;
+    const errorMsg =
+      error instanceof Error ? error.message : `Failed to start bridge server: ${String(error)}`;
 
-  console.error(`[Bridge] Roblox bridge server running on port ${config.bridgePort}`);
-  logger.bridge.info("Roblox bridge server started", { port: config.bridgePort });
+    console.error(`[Bridge] WARNING: ${errorMsg}`);
+    logger.bridge.error(
+      "Bridge server startup failed - MCP server will still start",
+      error instanceof Error ? error : undefined,
+      {
+        preferredPort,
+        recoverable: true,
+      }
+    );
+  }
 }
