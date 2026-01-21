@@ -10,6 +10,13 @@ const METHODS = {
   CloneInstance: "Clone an instance to a new parent (path, parentPath?)",
   RenameInstance: "Rename an instance (path, newName)",
 
+  // Instance discovery & info
+  GetFullName: "Get the full path of an instance (path)",
+  GetParent: "Get parent of an instance (path)",
+  IsA: "Check if instance is of a class (path, className)",
+  GetClassName: "Get the class name of an instance (path)",
+  WaitForChild: "Wait for a child to exist (path, name, timeout?)",
+
   // Properties
   SetProperty: "Set a property on an instance (path, property, value)",
   GetProperty: "Get a property value from an instance (path, property)",
@@ -23,8 +30,11 @@ const METHODS = {
   // Transforms
   MoveTo: "Move instance to position (path, position[x,y,z])",
   SetPosition: "Set absolute position (path, x, y, z)",
+  GetPosition: "Get position as [x, y, z] (path)",
   SetRotation: "Set rotation in degrees (path, x, y, z)",
+  GetRotation: "Get rotation as [x, y, z] (path)",
   SetSize: "Set size (path, x, y, z)",
+  GetSize: "Get size as [x, y, z] (path)",
   PivotTo: "Set CFrame via 12-element array (path, cframe[12])",
   GetPivot: "Get CFrame as 12-element array (path)",
 
@@ -36,6 +46,10 @@ const METHODS = {
   // Physics
   SetAnchored: "Set anchored state (path, anchored)",
   SetCanCollide: "Set collision state (path, canCollide)",
+  CreateConstraint:
+    "Create physics constraint (type, attachment0Path, attachment1Path, properties?)",
+  SetPhysicalProperties: "Set custom physical properties (path, density?, friction?, elasticity?)",
+  GetMass: "Get mass of a part (path)",
 
   // Scripting
   CreateScript: "Create a script (parentPath, source, scriptType?, name?)",
@@ -83,10 +97,23 @@ const METHODS = {
   PlaySound: "Play a sound (soundId, parentPath?, properties?)",
   StopSound: "Stop a playing sound (path)",
 
+  // Terrain
+  FillTerrain: "Fill terrain region with material (material, minX, minY, minZ, maxX, maxY, maxZ)",
+  ClearTerrain: "Clear all terrain",
+
+  // Camera
+  SetCameraPosition: "Move workspace camera (x, y, z)",
+  SetCameraFocus: "Focus camera on instance (path)",
+  GetCameraPosition: "Get current camera position as [x, y, z]",
+
   // Utilities
   GetDistance: "Get distance between two instances (path1, path2)",
   HighlightObject: "Add highlight effect to instance (path, color?, duration?)",
   Chat: "Send chat message (message)",
+
+  // History
+  Undo: "Undo the last action in Studio",
+  Redo: "Redo the last undone action in Studio",
 } as const;
 
 /** Register all MCP resources */
@@ -114,6 +141,7 @@ export function registerResources(server: FastMCP): void {
           pendingCommands,
           status: !port ? "bridge_not_running" : connected ? "connected" : "waiting_for_plugin",
         },
+        metrics: bridge.getMetrics(),
         config: {
           timeout: config.timeout,
           retries: config.retries,
@@ -144,11 +172,28 @@ export function registerResources(server: FastMCP): void {
             "CloneInstance",
             "RenameInstance",
           ],
+          "Instance Discovery": ["GetFullName", "GetParent", "IsA", "GetClassName", "WaitForChild"],
           Properties: ["SetProperty", "GetProperty"],
           Hierarchy: ["GetChildren", "GetDescendants", "FindFirstChild", "GetService"],
-          Transforms: ["MoveTo", "SetPosition", "SetRotation", "SetSize", "PivotTo", "GetPivot"],
+          Transforms: [
+            "MoveTo",
+            "SetPosition",
+            "GetPosition",
+            "SetRotation",
+            "GetRotation",
+            "SetSize",
+            "GetSize",
+            "PivotTo",
+            "GetPivot",
+          ],
           Appearance: ["SetColor", "SetTransparency", "SetMaterial"],
-          Physics: ["SetAnchored", "SetCanCollide"],
+          Physics: [
+            "SetAnchored",
+            "SetCanCollide",
+            "CreateConstraint",
+            "SetPhysicalProperties",
+            "GetMass",
+          ],
           Scripting: [
             "CreateScript",
             "GetScriptSource",
@@ -179,7 +224,10 @@ export function registerResources(server: FastMCP): void {
           Players: ["GetPlayers", "GetPlayerPosition", "TeleportPlayer", "KickPlayer"],
           Place: ["SavePlace", "GetPlaceInfo"],
           Audio: ["PlaySound", "StopSound"],
+          Terrain: ["FillTerrain", "ClearTerrain"],
+          Camera: ["SetCameraPosition", "SetCameraFocus", "GetCameraPosition"],
           Utilities: ["GetDistance", "HighlightObject", "Chat"],
+          History: ["Undo", "Redo"],
         },
       };
 

@@ -16,14 +16,71 @@ export interface RobloxResult {
   error?: string;
 }
 
+/** Metrics for a single command execution */
+interface CommandMetric {
+  method: string;
+  timestamp: number;
+  duration: number;
+  success: boolean;
+  error?: string;
+}
+
+/** Aggregated metrics for the bridge */
+export interface BridgeMetrics {
+  totalCommands: number;
+  successCount: number;
+  failureCount: number;
+  successRate: number;
+  averageDuration: number;
+  recentCommands: CommandMetric[];
+  methodStats: Record<string, { count: number; avgDuration: number; failures: number }>;
+}
+
 class RobloxBridge extends EventEmitter {
   private commandQueue: RobloxCommand[] = [];
   private pendingResponses = new Map<string, (result: RobloxResult) => void>();
   private lastPollTime = 0;
 
+  // Metrics tracking
+  private commandHistory: CommandMetric[] = [];
+  private readonly maxHistorySize = 100;
+  private commandStartTimes = new Map<string, number>();
+
   /** Check if bridge appears to be connected (plugin is polling) */
   isConnected(): boolean {
     return Date.now() - this.lastPollTime < 10_000; // 10 second window
+  }
+
+  /** Get metrics about command execution */
+  getMetrics(): BridgeMetrics {
+    const total = this.commandHistory.length;
+    const successes = this.commandHistory.filter((c) => c.success).length;
+    const failures = total - successes;
+    const avgDuration =
+      total > 0 ? this.commandHistory.reduce((sum, c) => sum + c.duration, 0) / total : 0;
+
+    // Calculate per-method stats
+    const methodStats: Record<string, { count: number; avgDuration: number; failures: number }> =
+      {};
+    for (const cmd of this.commandHistory) {
+      if (!methodStats[cmd.method]) {
+        methodStats[cmd.method] = { count: 0, avgDuration: 0, failures: 0 };
+      }
+      const stats = methodStats[cmd.method];
+      stats.avgDuration = (stats.avgDuration * stats.count + cmd.duration) / (stats.count + 1);
+      stats.count++;
+      if (!cmd.success) stats.failures++;
+    }
+
+    return {
+      totalCommands: total,
+      successCount: successes,
+      failureCount: failures,
+      successRate: total > 0 ? successes / total : 0,
+      averageDuration: Math.round(avgDuration),
+      recentCommands: this.commandHistory.slice(-10),
+      methodStats,
+    };
   }
 
   /** Execute a command and wait for Roblox response with retry logic */
@@ -72,11 +129,13 @@ class RobloxBridge extends EventEmitter {
     const command: RobloxCommand = { id, method, params };
 
     this.commandQueue.push(command);
+    this.commandStartTimes.set(id, Date.now());
     this.emit("new_command");
 
     return new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingResponses.delete(id);
+        this.recordMetric(id, method, false, "Timeout");
         const errorMsg = this.isConnected()
           ? `Command '${method}' timed out after ${config.timeout}ms (attempt ${attempt})`
           : `Command '${method}' timed out. Roblox Studio plugin is not connected. Please ensure the plugin is installed and Studio is running.`;
@@ -85,6 +144,7 @@ class RobloxBridge extends EventEmitter {
 
       this.pendingResponses.set(id, (result) => {
         clearTimeout(timeout);
+        this.recordMetric(id, method, result.success, result.error);
         if (result.success) {
           resolve(result.data as T);
         } else {
@@ -93,6 +153,26 @@ class RobloxBridge extends EventEmitter {
         }
       });
     });
+  }
+
+  /** Record a command metric */
+  private recordMetric(id: string, method: string, success: boolean, error?: string): void {
+    const startTime = this.commandStartTimes.get(id);
+    const duration = startTime ? Date.now() - startTime : 0;
+    this.commandStartTimes.delete(id);
+
+    this.commandHistory.push({
+      method,
+      timestamp: Date.now(),
+      duration,
+      success,
+      error,
+    });
+
+    // Trim history to max size
+    if (this.commandHistory.length > this.maxHistorySize) {
+      this.commandHistory.shift();
+    }
   }
 
   /** Get pending commands (called by Roblox plugin via HTTP) */

@@ -4,6 +4,7 @@
 --------------------------------------------------------------------------------
 
 -- Services (alphabetical per Roblox style guide)
+local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local HttpService = game:GetService("HttpService")
@@ -211,6 +212,40 @@ function Tools.RenameInstance(p)
 	return obj:GetFullName()
 end
 
+-- Instance Discovery & Info
+function Tools.GetFullName(p)
+	local obj = requirePath(p.path)
+	return obj:GetFullName()
+end
+
+function Tools.GetParent(p)
+	local obj = requirePath(p.path)
+	if obj.Parent then
+		return obj.Parent:GetFullName()
+	end
+	return nil
+end
+
+function Tools.IsA(p)
+	local obj = requirePath(p.path)
+	return obj:IsA(p.className)
+end
+
+function Tools.GetClassName(p)
+	local obj = requirePath(p.path)
+	return obj.ClassName
+end
+
+function Tools.WaitForChild(p)
+	local obj = requirePath(p.path)
+	local timeout = p.timeout or 5
+	local child = obj:WaitForChild(p.name, timeout)
+	if child then
+		return child:GetFullName()
+	end
+	return nil
+end
+
 -- Property Access
 function Tools.SetProperty(p)
 	local obj = requirePath(p.path)
@@ -281,16 +316,34 @@ function Tools.SetPosition(p)
 	return "Set"
 end
 
+function Tools.GetPosition(p)
+	local obj = requireBasePart(p.path)
+	local pos = obj.Position
+	return { pos.X, pos.Y, pos.Z }
+end
+
 function Tools.SetRotation(p)
 	local obj = requireBasePart(p.path)
 	obj.Rotation = Vector3.new(p.x, p.y, p.z)
 	return "Set"
 end
 
+function Tools.GetRotation(p)
+	local obj = requireBasePart(p.path)
+	local rot = obj.Rotation
+	return { rot.X, rot.Y, rot.Z }
+end
+
 function Tools.SetSize(p)
 	local obj = requireBasePart(p.path)
 	obj.Size = Vector3.new(p.x, p.y, p.z)
 	return "Set"
+end
+
+function Tools.GetSize(p)
+	local obj = requireBasePart(p.path)
+	local size = obj.Size
+	return { size.X, size.Y, size.Z }
 end
 
 function Tools.PivotTo(p)
@@ -360,6 +413,52 @@ function Tools.SetCanCollide(p)
 	local obj = requireBasePart(p.path)
 	obj.CanCollide = p.canCollide
 	return "Set"
+end
+
+function Tools.CreateConstraint(p)
+	local att0 = requirePath(p.attachment0Path)
+	local att1 = requirePath(p.attachment1Path)
+	
+	if not att0:IsA("Attachment") then
+		error("attachment0Path must be an Attachment")
+	end
+	if not att1:IsA("Attachment") then
+		error("attachment1Path must be an Attachment")
+	end
+	
+	local constraint = Instance.new(p.type)
+	constraint.Attachment0 = att0
+	constraint.Attachment1 = att1
+	
+	if p.properties then
+		for k, v in pairs(p.properties) do
+			pcall(function()
+				constraint[k] = v
+			end)
+		end
+	end
+	
+	constraint.Parent = att0.Parent
+	return constraint:GetFullName()
+end
+
+function Tools.SetPhysicalProperties(p)
+	local obj = requireBasePart(p.path)
+	local density = p.density or 1
+	local friction = p.friction or 0.3
+	local elasticity = p.elasticity or 0.5
+	local frictionWeight = p.frictionWeight or 1
+	local elasticityWeight = p.elasticityWeight or 1
+	
+	obj.CustomPhysicalProperties = PhysicalProperties.new(
+		density, friction, elasticity, frictionWeight, elasticityWeight
+	)
+	return "Set"
+end
+
+function Tools.GetMass(p)
+	local obj = requireBasePart(p.path)
+	return obj:GetMass()
 end
 
 -- Scripting
@@ -712,6 +811,75 @@ function Tools.StopSound(p)
 	return "Stopped"
 end
 
+-- Terrain
+function Tools.FillTerrain(p)
+	local terrain = game.Workspace:FindFirstChildOfClass("Terrain")
+	if not terrain then
+		error("No Terrain found in Workspace")
+	end
+	
+	local material = Enum.Material[p.material]
+	if not material then
+		error("Invalid material: " .. p.material)
+	end
+	
+	local min = Vector3.new(p.minX, p.minY, p.minZ)
+	local max = Vector3.new(p.maxX, p.maxY, p.maxZ)
+	local region = Region3.new(min, max)
+	
+	terrain:FillRegion(region, 4, material)
+	return "Filled"
+end
+
+function Tools.ClearTerrain()
+	local terrain = game.Workspace:FindFirstChildOfClass("Terrain")
+	if not terrain then
+		error("No Terrain found in Workspace")
+	end
+	terrain:Clear()
+	return "Cleared"
+end
+
+-- Camera
+function Tools.SetCameraPosition(p)
+	local camera = game.Workspace.CurrentCamera
+	if not camera then
+		error("No CurrentCamera found")
+	end
+	local pos = Vector3.new(p.x, p.y, p.z)
+	camera.CFrame = CFrame.new(pos) * camera.CFrame.Rotation
+	return "Set"
+end
+
+function Tools.SetCameraFocus(p)
+	local camera = game.Workspace.CurrentCamera
+	if not camera then
+		error("No CurrentCamera found")
+	end
+	local obj = requirePath(p.path)
+	
+	local targetPos
+	if obj:IsA("BasePart") then
+		targetPos = obj.Position
+	elseif obj:IsA("Model") then
+		targetPos = obj:GetPivot().Position
+	else
+		error("Cannot focus on: not a BasePart or Model")
+	end
+	
+	camera.CFrame = CFrame.new(camera.CFrame.Position, targetPos)
+	return "Focused"
+end
+
+function Tools.GetCameraPosition()
+	local camera = game.Workspace.CurrentCamera
+	if not camera then
+		error("No CurrentCamera found")
+	end
+	local pos = camera.CFrame.Position
+	return { pos.X, pos.Y, pos.Z }
+end
+
 -- Utility
 function Tools.GetDistance(p)
 	local obj1 = requirePath(p.path1)
@@ -753,6 +921,17 @@ function Tools.Chat(p)
 		return "Sent"
 	end
 	return "Chat not available"
+end
+
+-- History (Undo/Redo)
+function Tools.Undo()
+	ChangeHistoryService:Undo()
+	return "Undo executed"
+end
+
+function Tools.Redo()
+	ChangeHistoryService:Redo()
+	return "Redo executed"
 end
 
 --------------------------------------------------------------------------------
