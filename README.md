@@ -7,7 +7,7 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Bun](https://img.shields.io/badge/bun-1.0+-black)
-![FastMCP](https://img.shields.io/badge/FastMCP-1.20+-purple)
+![FastMCP](https://img.shields.io/badge/FastMCP-3.28+-purple)
 
 **AI-powered bridge connecting Model Context Protocol to Roblox Studio**
 
@@ -26,14 +26,16 @@ roblox-bridge-mcp enables AI agents to directly interact with Roblox Studio thro
 **Architecture:**
 
 - **MCP Server** - FastMCP + Bun server exposing the `roblox` tool
-- **HTTP Bridge** - Local server (port 8081) for command/result exchange
-- **Studio Plugin** - Lua plugin polling for commands and executing them in Studio
+- **HTTP Bridge** - Local server with automatic port allocation (tries 8081-8090)
+- **Studio Plugin** - Lua plugin with automatic server discovery and connection
 
 ## Features
 
 - **Single Unified Tool** - All 56 operations accessible via one `roblox` tool with method dispatch
+- **Automatic Port Discovery** - Bridge server tries ports 8081-8090 with automatic fallback
+- **Seamless Startup** - MCP server always starts, even if bridge port is occupied
 - **Real-time Communication** - HTTP polling bridge with exponential backoff and connection status
-- **Studio Integration** - Toolbar button with visual connection indicator
+- **Studio Integration** - Toolbar button with visual connection indicator and auto-discovery
 - **Comprehensive Coverage** - Instance CRUD, scripting, transforms, physics, lighting, selection, and more
 - **Type-Safe** - Zod schemas for all parameters
 - **Modern Stack** - Bun runtime, FastMCP framework, task-based Lua
@@ -84,12 +86,14 @@ The `roblox` tool will be available in your MCP client (restart the client if ne
 
 You can configure the bridge server behavior using environment variables. Create a `.env` file in your project root or set these in your MCP client configuration:
 
-| Variable             | Description                                   | Default |
-| -------------------- | --------------------------------------------- | ------- |
-| `ROBLOX_BRIDGE_PORT` | Port for the HTTP bridge server               | `8081`  |
-| `ROBLOX_TIMEOUT_MS`  | Timeout in milliseconds for command execution | `30000` |
-| `ROBLOX_RETRIES`     | Number of retry attempts for failed commands  | `2`     |
-| `LOG_LEVEL`          | Logging level (DEBUG, INFO, WARN, ERROR)      | `INFO`  |
+| Variable             | Description                                                    | Default |
+| -------------------- | -------------------------------------------------------------- | ------- |
+| `ROBLOX_BRIDGE_PORT` | Preferred port for the HTTP bridge server (will try 8081-8090) | `8081`  |
+| `ROBLOX_TIMEOUT_MS`  | Timeout in milliseconds for command execution                  | `30000` |
+| `ROBLOX_RETRIES`     | Number of retry attempts for failed commands                   | `2`     |
+| `LOG_LEVEL`          | Logging level (DEBUG, INFO, WARN, ERROR)                       | `INFO`  |
+
+**Note:** The bridge server automatically tries ports 8081-8090 in sequence. If the preferred port is occupied, it will use the next available port. The Studio plugin automatically discovers and connects to the active server.
 
 **Example `.env` file:**
 
@@ -312,10 +316,12 @@ All instance paths use dot notation starting from `game`:
 
 The Studio plugin provides:
 
+- **Automatic Discovery** - Scans ports 8081-8090 to find and connect to the bridge server
+- **Service Validation** - Verifies server identity using health endpoint before connecting
 - **Toolbar Integration** - "MCP Bridge" toolbar with toggle button
 - **Connection Status** - Visual indicator (active = connected, inactive = disconnected)
 - **Enable/Disable** - Click toolbar button to toggle bridge on/off
-- **Auto-Reconnect** - Exponential backoff (2s → 10s) on connection loss
+- **Auto-Reconnect** - Exponential backoff (2s → 10s) on connection loss with port rediscovery
 - **Modern Lua** - Uses `task` library, no deprecated APIs
 - **Error Handling** - Structured error messages with context
 
@@ -328,18 +334,20 @@ The Studio plugin provides:
 └─────────────────┘         └──────────────────┘         └─────────────────┘
                                      │                            │
                                      │                            │
-                                  port 8081                  Roblox API
-                             /poll, /result              (game.Workspace, etc)
+                                ports 8081-8090              Roblox API
+                         /health, /poll, /result      (game.Workspace, etc)
 ```
 
 **Communication Flow:**
 
-1. MCP client calls `roblox` tool with method + params
-2. Server adds command to queue
-3. Plugin polls `/poll`, receives commands
-4. Plugin executes command in Studio using Roblox API
-5. Plugin posts result to `/result`
-6. Server resolves promise, returns to MCP client
+1. Bridge server starts on first available port (8081-8090)
+2. Plugin discovers server by scanning ports and validating `/health` endpoint
+3. MCP client calls `roblox` tool with method + params
+4. Server adds command to queue
+5. Plugin polls `/poll`, receives commands
+6. Plugin executes command in Studio using Roblox API
+7. Plugin posts result to `/result`
+8. Server resolves promise, returns to MCP client
 
 ## Development
 
@@ -383,20 +391,28 @@ bun run build
 
 - Check that Roblox Studio is running
 - Verify HttpService is enabled in Studio settings
-- Ensure no firewall is blocking localhost:8081
-- Check Studio output window for `[MCP]` log messages
+- Ensure no firewall is blocking localhost ports 8081-8090
+- Check Studio output window for `[MCP]` log messages showing port discovery
+- The plugin will show which port it discovered (e.g., "Discovered server on port 8084")
 
 **Tool not appearing in MCP client:**
 
 - Verify MCP client configuration points to correct path
 - Restart MCP client after configuration changes
 - Check that `bun run dev` is running without errors
+- The MCP server will always start even if the bridge port is occupied
 
 **Commands timing out:**
 
 - Default timeout is 30 seconds
 - Check Studio output for Lua errors
 - Verify instance paths are correct (use `GetChildren` to explore)
+
+**Port conflicts:**
+
+- The bridge automatically tries ports 8081-8090
+- Check server startup logs to see which port was used
+- If all ports are occupied, the MCP server will still start but tools will fail until a port is available
 
 ## Contributing
 
