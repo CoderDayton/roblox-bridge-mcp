@@ -1774,6 +1774,10 @@ task.spawn(function()
 					return HttpService:GetAsync(pollUrl, false)
 				end)
 
+				if not success then
+					print("[MCP] Poll failed: " .. tostring(response))
+				end
+
 				if success then
 					if not isConnected then
 						isConnected = true
