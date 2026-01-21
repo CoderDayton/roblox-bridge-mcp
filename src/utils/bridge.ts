@@ -1,6 +1,7 @@
 import { EventEmitter } from "events";
 import { RobloxTimeoutError, RobloxExecutionError, BridgeConnectionError } from "./errors";
 import { config } from "../config";
+import { logger } from "./logger";
 
 export interface RobloxCommand {
   id: string;
@@ -40,14 +41,19 @@ class RobloxBridge extends EventEmitter {
 
         // Only retry on timeout errors
         if (isTimeout && !isLastAttempt) {
-          console.error(
-            `[Bridge] Timeout on attempt ${attempt + 1}/${retries + 1} for ${method}, retrying...`
-          );
+          logger.bridge.warn(`Timeout on attempt ${attempt + 1}/${retries + 1}, retrying...`, {
+            method,
+            attempt: attempt + 1,
+            maxRetries: retries + 1,
+          });
           await new Promise((resolve) => setTimeout(resolve, 1000)); // 1s delay between retries
           continue;
         }
 
         // Re-throw with context
+        if (error instanceof Error) {
+          logger.bridge.error("Command failed", error, { method, attempt: attempt + 1 });
+        }
         throw error;
       }
     }
@@ -140,4 +146,5 @@ export function startBridgeServer(): void {
   });
 
   console.error(`[Bridge] Roblox bridge server running on port ${config.bridgePort}`);
+  logger.bridge.info("Roblox bridge server started", { port: config.bridgePort });
 }
