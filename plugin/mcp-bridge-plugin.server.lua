@@ -1733,9 +1733,13 @@ task.spawn(function()
 			if not isConnected and not activePort then
 				activePort = discoverServerPort()
 				if activePort then
-					print("[MCP] No server found on port " .. activePort)
+					serverUrl = "http://localhost:" .. activePort
+					print("[MCP] Found server on port " .. activePort)
 				else
 					print("[MCP] No server found on port " .. CONFIG.BASE_PORT)
+					task.wait(retryInterval)
+					retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
+					continue
 				end
 			end
 
