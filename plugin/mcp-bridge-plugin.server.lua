@@ -588,7 +588,7 @@ local function createUI(props)
 		TweenService:Create(saveBtn, TWEEN_INFO, { BackgroundColor3 = COLORS.primaryHover }):Play()
 		local key = inputBox.Text
 		if key and key ~= "" then
-			onSaveKey(key)
+			props.onSaveKey(key)
 			statusLabel.Text = "Saved"
 			TweenService:Create(statusLabel, TWEEN_INFO, { TextColor3 = COLORS.success }):Play()
 			inputBox.Text = ""
