@@ -1,7 +1,7 @@
 import { config as loadEnv } from "dotenv";
 
-// Load .env file if it exists
-loadEnv();
+// Load .env file silently (debug output breaks MCP JSON protocol)
+loadEnv({ debug: false });
 
 export interface Config {
   /** Port for the Roblox HTTP bridge server (default: 8081) */
