@@ -4,7 +4,7 @@ import { config as loadEnv } from "dotenv";
 loadEnv({ debug: false });
 
 export interface Config {
-  /** Port for the Roblox HTTP bridge server (default: 8081) */
+  /** Port for the Roblox HTTP bridge server (default: 53847) */
   bridgePort: number;
   /** Timeout in milliseconds for Roblox command execution (default: 30000) */
   timeout: number;
@@ -26,7 +26,7 @@ function generateApiKey(): string {
 }
 
 export const config: Config = {
-  bridgePort: parseNumber(process.env.ROBLOX_BRIDGE_PORT, 8081),
+  bridgePort: parseNumber(process.env.ROBLOX_BRIDGE_PORT, 53847),
   timeout: parseNumber(process.env.ROBLOX_TIMEOUT_MS, 30_000),
   retries: parseNumber(process.env.ROBLOX_RETRIES, 2),
   apiKey: process.env.ROBLOX_API_KEY || generateApiKey(),

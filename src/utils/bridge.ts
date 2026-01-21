@@ -413,62 +413,34 @@ function tryStartServer(port: number): ReturnType<typeof Bun.serve> | null {
   }
 }
 
-/** Start the HTTP bridge server for Roblox plugin communication with automatic port fallback */
+/** Start the HTTP bridge server for Roblox plugin communication */
 export function startBridgeServer(): void {
-  const preferredPort = config.bridgePort;
-  const maxPort = preferredPort + 9; // Try up to 10 ports (e.g., 8081-8090)
+  const port = config.bridgePort;
 
   try {
-    // Try preferred port first, then fallback ports
-    for (let port = preferredPort; port <= maxPort; port++) {
-      const server = tryStartServer(port);
-      if (server) {
-        activeBridgePort = port;
-        const portInfo =
-          port === preferredPort
-            ? `port ${port}`
-            : `port ${port} (preferred ${preferredPort} was in use)`;
+    const server = tryStartServer(port);
+    if (server) {
+      activeBridgePort = port;
 
-        // Write port to file for fast plugin discovery
-        const portFile =
-          process.platform === "win32"
-            ? `${process.env.LOCALAPPDATA}\\Temp\\roblox-mcp-port.txt`
-            : `/tmp/roblox-mcp-port.txt`;
-
-        try {
-          require("fs").writeFileSync(portFile, String(port), "utf8");
-          logger.bridge.debug("Wrote port file", { path: portFile, port });
-        } catch (err) {
-          logger.bridge.warn("Failed to write port file", { error: String(err) });
-        }
-
-        console.error(`[Bridge] Roblox bridge server running on ${portInfo}`);
-        console.error(`[Bridge] API Key: ${config.apiKey}`);
-        console.error(`[Bridge] Set this key in your Roblox plugin to connect`);
-        logger.bridge.info("Roblox bridge server started", {
-          port,
-          preferredPort,
-          wasFallback: port !== preferredPort,
-        });
-        return; // Success
-      }
+      console.error(`[Bridge] Roblox bridge server running on port ${port}`);
+      console.error(`[Bridge] API Key: ${config.apiKey}`);
+      console.error(`[Bridge] Set this key in your Roblox plugin to connect`);
+      logger.bridge.info("Roblox bridge server started", { port });
+      return;
     }
 
-    // All ports exhausted
-    throw new Error(
-      `All ports ${preferredPort}-${maxPort} are in use. Could not start bridge server.`
-    );
+    throw new Error(`Port ${port} is in use. Please set ROBLOX_BRIDGE_PORT to a different port.`);
   } catch (error) {
     activeBridgePort = null;
     const errorMsg =
       error instanceof Error ? error.message : `Failed to start bridge server: ${String(error)}`;
 
-    console.error(`[Bridge] WARNING: ${errorMsg}`);
+    console.error(`[Bridge] ERROR: ${errorMsg}`);
     logger.bridge.error(
       "Bridge server startup failed - MCP server will still start",
       error instanceof Error ? error : undefined,
       {
-        preferredPort,
+        port,
         recoverable: true,
       }
     );

@@ -23,13 +23,10 @@ local TweenService = game:GetService("TweenService")
 local VERSION = "1.0.0"
 
 local CONFIG = {
-	BASE_PORT = 8081,
-	PORT_RANGE = 10,
-	LONG_POLL_TIMEOUT = 25,
-	RETRY_INTERVAL = 2.0,
-	MAX_RETRY_INTERVAL = 10.0,
+	BASE_PORT = 53847,
+	RETRY_INTERVAL = 2,
+	MAX_RETRY_INTERVAL = 10,
 	USE_LONG_POLL = true,
-	API_KEY = "",
 }
 
 --------------------------------------------------------------------------------
@@ -730,60 +727,24 @@ end)
 --------------------------------------------------------------------------------
 
 local function discoverServerPort()
-	-- Try common ports first (these work 80% of the time)
-	local commonPorts = {8081, 8082, 8083}
+	local port = CONFIG.BASE_PORT
+	local testUrl = "http://localhost:" .. port
 	
-	-- Fast check common ports
-	for _, port in ipairs(commonPorts) do
-		local testUrl = "http://localhost:" .. port
-		local success, response = pcall(function()
-			return HttpService:RequestAsync({
-				Url = testUrl .. "/health",
-				Method = "GET",
-				Headers = { ["Accept"] = "application/json" }
-			})
+	local success, response = pcall(function()
+		return HttpService:RequestAsync({
+			Url = testUrl .. "/health",
+			Method = "GET",
+			Headers = { ["Accept"] = "application/json" }
+		})
+	end)
+	
+	if success and response.Success and response.StatusCode == 200 then
+		local ok, data = pcall(function()
+			return HttpService:JSONDecode(response.Body)
 		end)
 		
-		if success and response.Success and response.StatusCode == 200 then
-			local ok, data = pcall(function()
-				return HttpService:JSONDecode(response.Body)
-			end)
-			
-			if ok and data and data.service == "roblox-bridge-mcp" then
-				return port
-			end
-		end
-	end
-	
-	-- Fallback: scan remaining uncommon ports
-	for port = CONFIG.BASE_PORT, CONFIG.BASE_PORT + CONFIG.PORT_RANGE - 1 do
-		local isCommon = false
-		for _, commonPort in ipairs(commonPorts) do
-			if port == commonPort then
-				isCommon = true
-				break
-			end
-		end
-		
-		if not isCommon then
-			local testUrl = "http://localhost:" .. port
-			local success, response = pcall(function()
-				return HttpService:RequestAsync({
-					Url = testUrl .. "/health",
-					Method = "GET",
-					Headers = { ["Accept"] = "application/json" }
-				})
-			end)
-			
-			if success and response.Success and response.StatusCode == 200 then
-				local ok, data = pcall(function()
-					return HttpService:JSONDecode(response.Body)
-				end)
-				
-				if ok and data and data.service == "roblox-bridge-mcp" then
-					return port
-				end
-			end
+		if ok and data and data.service == "roblox-bridge-mcp" then
+			return port
 		end
 	end
 	
@@ -1677,13 +1638,9 @@ task.spawn(function()
 			if not isConnected and not activePort then
 				activePort = discoverServerPort()
 				if activePort then
-					serverUrl = "http://localhost:" .. activePort
-					print("[MCP] Discovered server on port " .. activePort)
+					print("[MCP] No server found on port " .. activePort)
 				else
-					print("[MCP] No server found on ports " .. CONFIG.BASE_PORT .. "-" .. (CONFIG.BASE_PORT + CONFIG.PORT_RANGE - 1))
-					task.wait(retryInterval)
-					retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
-					continue
+					print("[MCP] No server found on port " .. CONFIG.BASE_PORT)
 				end
 			end
 
