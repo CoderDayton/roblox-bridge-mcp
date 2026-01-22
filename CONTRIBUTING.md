@@ -45,7 +45,33 @@ If checks fail, the commit will be blocked. Fix issues before committing.
 - Strict mode enabled - no `any` without justification
 - Explicit return types for public functions
 - Use type inference for local variables
+- All exported functions MUST have JSDoc comments
 - Document complex types with JSDoc comments
+
+### JSDoc Standards
+
+All exported functions, classes, and interfaces must include:
+
+```typescript
+/**
+ * Brief one-line description
+ * Optional extended description with usage context
+ * @param paramName - Description of parameter
+ * @returns Description of return value
+ * @throws {ErrorType} When this error occurs
+ * @example
+ * const result = myFunction("input");
+ */
+```
+
+Required JSDoc elements:
+
+- Summary line (what the function does)
+- `@param` for all parameters with types and descriptions
+- `@returns` describing the return value
+- `@throws` for all error types that can be thrown
+- `@private` for private methods (helps IDE autocomplete)
+- `@deprecated` for deprecated APIs with migration guidance
 
 ### Code Style
 
@@ -53,6 +79,10 @@ If checks fail, the commit will be blocked. Fix issues before committing.
 - 2-space indentation
 - No trailing semicolons (Prettier removes them)
 - Use modern ES6+ syntax
+- Extract magic numbers to named constants
+- Prefer early returns over nested conditionals
+- Extract helper functions when methods exceed 30 lines
+- Max function complexity: McCabe score ≤ 10
 
 ### Error Handling
 
@@ -88,9 +118,12 @@ bun test --coverage   # Coverage report
 ### Test Requirements
 
 - All new features must include tests
-- Maintain or improve code coverage
+- Target coverage: 85%+ for critical paths (bridge.ts, tools)
+- Maintain or improve code coverage (never decrease)
 - Tests must pass before merging
 - Mock external dependencies (HTTP, file system)
+- Test edge cases: empty strings, null, undefined, boundary values
+- Integration tests for new endpoints or protocols
 
 ## Project Structure
 
@@ -144,33 +177,49 @@ plugin/
 
 Tools follow the consolidated pattern in `src/tools/roblox-tools.ts`:
 
-```typescript
-{
-  method: "MethodName",
-  params: {
-    param1: z.string().describe("Description"),
-    param2: z.number().optional().describe("Optional param")
-  },
-  implementation: "Brief description for documentation"
-}
-```
+1. Add method to `METHODS` array enum
+2. Document in `DESCRIPTION` string with signature: `MethodName(param1,param2?)`
+3. Optional params marked with `?`, arrays with `[]`, CFrames with `[x,y,z,...]`
 
 ### Steps to Add a Tool
 
-1. Add method definition to `TOOL_DEFINITIONS` array
-2. Update tool count in README (currently 56 tools)
-3. Implement in `plugin/loader.server.lua` under the corresponding method name
-4. Add tests for validation and execution
-5. Document in CHANGELOG.md
+1. Add method name to `METHODS` array in `src/tools/roblox-tools.ts`
+2. Add method signature to `DESCRIPTION` string
+3. Update tool count in README (currently 99 methods)
+4. Implement in `plugin/loader.server.lua`:
+   - Add to appropriate Tools table function
+   - Handle all params with validation
+   - Return `{ success = true, data = result }` or throw error
+5. Add tests for validation and execution
+6. Document in CHANGELOG.md under `[Unreleased]`
+7. Update capability categorization in `src/resources/index.ts` if adding new category
 
 ### Lua Implementation
 
 ```lua
-elseif method == "YourMethod" then
-    local param1 = params.param1
-    -- Implementation
-    return { success = true, data = result }
+function Tools.YourMethod(p)
+	-- Validate required params
+	local param1 = requireParam(p.param1, "param1")
+
+	-- Optional params with defaults
+	local param2 = p.param2 or "default"
+
+	-- Implementation
+	local result = doSomething(param1, param2)
+
+	-- Return success or throw error
+	return result
+end
 ```
+
+### Lua Best Practices
+
+- Extract helper functions to reduce complexity
+- Use `requirePath()` for instance lookups
+- Use `requireParam()` for required parameters
+- Document all public functions with Lua comments
+- Prefer explicit error messages over generic failures
+- Test with Roblox Studio before submitting
 
 ## Environment Variables
 

@@ -20,6 +20,6 @@ startBridgeServer();
 
 // Start MCP server (stdio transport for Claude Desktop / local agents)
 logger.server.info("Starting MCP server", { transport: "stdio" });
-server.start({
+void server.start({
   transportType: "stdio",
 });

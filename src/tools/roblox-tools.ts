@@ -3,6 +3,12 @@ import type { FastMCP } from "fastmcp";
 import { bridge } from "../utils/bridge";
 import { config } from "../config";
 
+/**
+ * All supported Roblox Studio API methods
+ * Methods are organized by category: Instance Management, Discovery, Properties,
+ * Hierarchy, Transforms, Appearance, Physics, Scripting, Selection, Lighting,
+ * Attributes/Tags, Players, Place, Audio, Terrain, Camera, Utilities, History
+ */
 const METHODS = [
   // Instance management
   "CreateInstance",
@@ -98,6 +104,11 @@ const METHODS = [
   "Redo",
 ] as const;
 
+/**
+ * Comprehensive description of all 99 Roblox Studio API methods
+ * Format: MethodName(param1,param2?,param3?)
+ * Optional params marked with ?, arrays marked with [], numeric ranges shown as min-max
+ */
 const DESCRIPTION = `Roblox Studio ops. method + params{}.
 CreateInstance(className,parentPath,name?,properties?)
 DeleteInstance(path)
@@ -174,6 +185,11 @@ Chat(message,color?)
 Undo()
 Redo()`;
 
+/**
+ * Register all Roblox Studio tools with the FastMCP server
+ * Registers a single 'roblox' tool that dispatches to 99 different methods
+ * @param server - FastMCP server instance to register tools with
+ */
 export function registerAllTools(server: FastMCP): void {
   server.addTool({
     name: "roblox",
@@ -182,6 +198,12 @@ export function registerAllTools(server: FastMCP): void {
       method: z.enum(METHODS),
       params: z.record(z.unknown()).default({}),
     }),
+    /**
+     * Execute a Roblox Studio command via the bridge
+     * @param method - Roblox API method to invoke
+     * @param params - Method parameters as key-value pairs
+     * @returns Stringified JSON result from Roblox Studio
+     */
     execute: async ({ method, params }) => {
       const result = await bridge.execute(method, params, config.retries);
       return typeof result === "string" ? result : JSON.stringify(result, null, 2);

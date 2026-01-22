@@ -1786,6 +1786,7 @@ end
 
 local wsClient = nil
 local isConnecting = false  -- Prevent multiple simultaneous connection attempts
+local retryScheduled = false  -- Prevent multiple scheduled retries
 
 local function connectWebSocket()
 	if isConnecting then
@@ -1883,18 +1884,18 @@ local function connectWebSocket()
 			end)
 		end
 		
-		-- Only auto-reconnect if we were previously connected and still enabled
-		if isEnabled and wasConnected then
-			print("[MCP] Connection lost, will reconnect in", retryInterval, "seconds...")
+		-- Only schedule ONE retry if enabled and not already scheduled
+		if isEnabled and not retryScheduled then
+			retryScheduled = true
+			
+			if wasConnected then
+				print("[MCP] Connection lost, will reconnect in", retryInterval, "seconds...")
+			else
+				print("[MCP] Connection failed, will retry in", retryInterval, "seconds...")
+			end
+			
 			task.delay(retryInterval, function()
-				retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
-				if isEnabled and not isConnected and not isConnecting then
-					connectWebSocket()
-				end
-			end)
-		elseif isEnabled and not wasConnected then
-			print("[MCP] Connection failed, will retry in", retryInterval, "seconds...")
-			task.delay(retryInterval, function()
+				retryScheduled = false  -- Clear flag before attempting
 				retryInterval = math.min(retryInterval * 1.5, CONFIG.MAX_RETRY_INTERVAL)
 				if isEnabled and not isConnected and not isConnecting then
 					connectWebSocket()
@@ -1903,10 +1904,10 @@ local function connectWebSocket()
 		end
 	end)
 	
-	-- Handle errors
+	-- Handle errors (don't reset isConnecting here - let Closed event handle cleanup)
 	wsClient.Error:Connect(function(statusCode, errorMessage)
 		print("[MCP] WebSocket error:", statusCode, "-", errorMessage)
-		isConnecting = false
+		-- Note: Closed event will fire immediately after, which handles cleanup
 	end)
 	
 	return true

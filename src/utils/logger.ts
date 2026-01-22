@@ -33,30 +33,25 @@ class Logger {
   }
 
   debug(message: string, context?: LogContext): void {
-    if (this.shouldLog(LogLevel.DEBUG)) {
-      console.debug(this.formatMessage("DEBUG", message, context));
-    }
+    if (!this.shouldLog(LogLevel.DEBUG)) return;
+    console.debug(this.formatMessage("DEBUG", message, context));
   }
 
   info(message: string, context?: LogContext): void {
-    if (this.shouldLog(LogLevel.INFO)) {
-      console.info(this.formatMessage("INFO", message, context));
-    }
+    if (!this.shouldLog(LogLevel.INFO)) return;
+    console.info(this.formatMessage("INFO", message, context));
   }
 
   warn(message: string, context?: LogContext): void {
-    if (this.shouldLog(LogLevel.WARN)) {
-      console.warn(this.formatMessage("WARN", message, context));
-    }
+    if (!this.shouldLog(LogLevel.WARN)) return;
+    console.warn(this.formatMessage("WARN", message, context));
   }
 
   error(message: string, error?: Error, context?: LogContext): void {
-    if (this.shouldLog(LogLevel.ERROR)) {
-      const errorContext = error
-        ? { ...context, error: error.message, stack: error.stack }
-        : context;
-      console.error(this.formatMessage("ERROR", message, errorContext));
-    }
+    if (!this.shouldLog(LogLevel.ERROR)) return;
+
+    const errorContext = error ? { ...context, error: error.message, stack: error.stack } : context;
+    console.error(this.formatMessage("ERROR", message, errorContext));
   }
 }
 

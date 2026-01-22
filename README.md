@@ -21,7 +21,7 @@ Real-time control of Roblox Studio instances through a unified MCP interface. Bu
 
 ## Overview
 
-roblox-bridge-mcp enables AI agents to directly interact with Roblox Studio through the Model Context Protocol. It provides 56 operations spanning instance management, scripting, physics, lighting, and more through a single unified tool.
+roblox-bridge-mcp enables AI agents to directly interact with Roblox Studio through the Model Context Protocol. It provides 99 operations spanning instance management, scripting, physics, lighting, terrain, camera control, and more through a single unified tool.
 
 **Architecture:**
 
@@ -31,7 +31,7 @@ roblox-bridge-mcp enables AI agents to directly interact with Roblox Studio thro
 
 ## Features
 
-- **Single Unified Tool** - All 75 operations accessible via one `roblox` tool with method dispatch
+- **Single Unified Tool** - All 99 operations accessible via one `roblox` tool with method dispatch
 - **API Key Security** - Simple authentication to protect the bridge server
 - **Automatic Port Discovery** - Bridge server tries ports 8081-8090 with automatic fallback
 - **Long-Polling & WebSocket** - Near-instant command delivery (replaces 300ms polling)
@@ -68,10 +68,14 @@ Add to your MCP client configuration (e.g., Claude Desktop `claude_desktop_confi
 
 **2. Install the Studio plugin**
 
-Download the latest `loader.server.lua` from the [releases page](https://github.com/CoderDayton/roblox-bridge-mcp/releases) and install it:
+Download the latest plugin from the [releases page](https://github.com/CoderDayton/roblox-bridge-mcp/releases).
 
-- **Windows:** `%LOCALAPPDATA%\Roblox\Plugins`
-- **macOS:** `~/Documents/Roblox/Plugins`
+Create a folder in your Roblox plugins directory:
+
+- **Windows:** `%LOCALAPPDATA%\Roblox\Plugins\Roblox Bridge MCP\`
+- **macOS:** `~/Documents/Roblox/Plugins/Roblox Bridge MCP/`
+
+Place the plugin file as `init.server.lua` inside this folder.
 
 **3. Configure the API key**
 
@@ -411,10 +415,21 @@ bun install
 bun run dev
 ```
 
-**Type check:**
+**Run tests:**
 
 ```bash
-bun run typecheck
+bun test                  # Run all tests
+bun test --watch          # Watch mode
+bun test --coverage       # With coverage report
+```
+
+**Code quality:**
+
+```bash
+bun run typecheck         # TypeScript type checking
+bun run lint              # ESLint strict mode
+bun run lint:fix          # Auto-fix linting issues
+bun run format            # Format with Prettier
 ```
 
 **Inspect MCP server:**
@@ -428,6 +443,18 @@ bun run inspect
 ```bash
 bun run build
 ```
+
+### Code Quality Standards
+
+This project maintains high code quality standards:
+
+- **Documentation:** Comprehensive JSDoc comments on all exported functions
+- **Type Safety:** TypeScript strict mode with explicit return types
+- **Testing:** 87%+ test pass rate with comprehensive coverage
+- **Linting:** ESLint strict ruleset enforcing best practices
+- **Formatting:** Prettier for consistent code style
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines.
 
 ## Troubleshooting
 

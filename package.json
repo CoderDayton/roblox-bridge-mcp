@@ -37,13 +37,15 @@
     "dev": "bun run src/index.ts",
     "inspect": "bunx fastmcp inspect src/index.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage",
     "format": "bunx prettier --write .",
     "format:check": "bunx prettier --check .",
     "prepare": "lefthook install",
-    "prepublishOnly": "bun run typecheck && bun test",
+    "prepublishOnly": "bun run typecheck && bun run lint && bun test",
     "build": "tsc --outDir dist"
   },
   "dependencies": {
@@ -53,6 +55,10 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
     "lefthook": "^2.0.15",
     "typescript": "^5.8.3"
   }

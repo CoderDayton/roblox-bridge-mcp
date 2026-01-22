@@ -50,15 +50,15 @@ local ui = nil -- UI instance
 --------------------------------------------------------------------------------
 
 local function getApiKey()
-	-- Try to load from plugin settings first
 	local savedKey = plugin:GetSetting("MCP_API_KEY")
 	if savedKey and savedKey ~= "" then
 		return savedKey
 	end
-	-- Fall back to CONFIG
+	
 	if CONFIG.API_KEY and CONFIG.API_KEY ~= "" then
 		return CONFIG.API_KEY
 	end
+	
 	return nil
 end
 
@@ -132,24 +132,23 @@ end)
 -- Utilities
 --------------------------------------------------------------------------------
 
+local function isValidMCPServer(response)
+	local ok, data = pcall(HttpService.JSONDecode, HttpService, response)
+	if ok and data and data.service == "roblox-bridge-mcp" then
+		print(string.format("[MCP] Found bridge server on port %d (connected: %s)", 
+			data.port, tostring(data.connected)))
+		return true
+	end
+	return false
+end
+
 local function discoverServerPort()
-	-- Try to find an active MCP bridge server in the port range using health endpoint
 	for port = CONFIG.BASE_PORT, CONFIG.BASE_PORT + CONFIG.PORT_RANGE - 1 do
-		local testUrl = "http://localhost:" .. port
-		local success, response = pcall(function()
-			return HttpService:GetAsync(testUrl .. "/health", false)
-		end)
+		local testUrl = "http://localhost:" .. port .. "/health"
+		local success, response = pcall(HttpService.GetAsync, HttpService, testUrl, false)
 		
-		if success then
-			-- Verify it's actually our MCP bridge server
-			local ok, data = pcall(function()
-				return HttpService:JSONDecode(response)
-			end)
-			
-			if ok and data and data.service == "roblox-bridge-mcp" then
-				print(string.format("[MCP] Found bridge server on port %d (connected: %s)", port, tostring(data.connected)))
-				return port
-			end
+		if success and isValidMCPServer(response) then
+			return port
 		end
 	end
 	return nil
@@ -178,34 +177,34 @@ local function sendResult(id, success, data, err)
 	end)
 end
 
+local function resolveChild(parent, name)
+	local child = parent:FindFirstChild(name)
+	
+	if not child and parent == game then
+		local ok, service = pcall(game.GetService, game, name)
+		if ok then
+			return service
+		end
+	end
+	
+	return child
+end
+
 local function resolvePath(path)
 	if path == "game" then
 		return game
 	end
 
 	local segments = string.split(path, ".")
+	local startIdx = segments[1] == "game" and 2 or 1
 	local current = game
-	local startIdx = 1
-	if segments[1] == "game" then
-		startIdx = 2
-	end
 
 	for i = startIdx, #segments do
-		local name = segments[i]
 		if not current then
 			return nil
 		end
-
-		local child = current:FindFirstChild(name)
-		if not child and current == game then
-			local ok, service = pcall(function()
-				return game:GetService(name)
-			end)
-			if ok then
-				child = service
-			end
-		end
-		current = child
+		
+		current = resolveChild(current, segments[i])
 	end
 
 	return current
@@ -602,43 +601,33 @@ function Tools.InsertScriptLines(p)
 	return "Inserted"
 end
 
-function Tools.RunConsoleCommand(p)
-	local func, compileErr = loadstring(p.code)
-	if not func then
-		error("Compile error: " .. tostring(compileErr))
-	end
-
-	local logs = {}
-	local env = setmetatable({
-		print = function(...)
+local function createSandboxEnv(logs)
+	local function captureOutput(prefix)
+		return function(...)
 			local parts = {}
 			for i = 1, select("#", ...) do
 				table.insert(parts, tostring(select(i, ...)))
 			end
-			table.insert(logs, table.concat(parts, " "))
+			table.insert(logs, prefix .. table.concat(parts, " "))
+		end
+	end
+	
+	return setmetatable({
+		print = function(...)
+			captureOutput("")(...)
 			print(...)
 		end,
 		warn = function(...)
-			local parts = {}
-			for i = 1, select("#", ...) do
-				table.insert(parts, tostring(select(i, ...)))
-			end
-			table.insert(logs, "WARN: " .. table.concat(parts, " "))
+			captureOutput("WARN: ")(...)
 			warn(...)
 		end,
 	}, { __index = getfenv() })
+end
 
-	setfenv(func, env)
-
-	local results = { pcall(func) }
-	local success = table.remove(results, 1)
+local function formatCommandOutput(logs, results)
 	local output = table.concat(logs, "\n")
-
-	if not success then
-		error(output .. "\nRuntime error: " .. tostring(results[1]))
-	end
-
 	local returnStr = ""
+	
 	if #results > 0 then
 		local strResults = {}
 		for _, v in pairs(results) do
@@ -651,11 +640,29 @@ function Tools.RunConsoleCommand(p)
 		return "Executed (no output)"
 	end
 
-	local sep = ""
-	if output ~= "" and returnStr ~= "" then
-		sep = "\n"
+	return output ~= "" and returnStr ~= "" 
+		and output .. "\n" .. returnStr 
+		or output .. returnStr
+end
+
+function Tools.RunConsoleCommand(p)
+	local func, compileErr = loadstring(p.code)
+	if not func then
+		error("Compile error: " .. tostring(compileErr))
 	end
-	return output .. sep .. returnStr
+
+	local logs = {}
+	local env = createSandboxEnv(logs)
+	setfenv(func, env)
+
+	local results = { pcall(func) }
+	local success = table.remove(results, 1)
+
+	if not success then
+		error(table.concat(logs, "\n") .. "\nRuntime error: " .. tostring(results[1]))
+	end
+
+	return formatCommandOutput(logs, results)
 end
 
 -- Selection
@@ -947,22 +954,21 @@ function Tools.GetCameraPosition()
 end
 
 -- Utility
+local function getObjectPosition(obj)
+	if obj:IsA("BasePart") then
+		return obj.Position
+	elseif obj:IsA("Model") then
+		return obj:GetPivot().Position
+	else
+		error("Cannot get position: not a BasePart or Model")
+	end
+end
+
 function Tools.GetDistance(p)
 	local obj1 = requirePath(p.path1)
 	local obj2 = requirePath(p.path2)
-
-	local function getPosition(obj)
-		if obj:IsA("BasePart") then
-			return obj.Position
-		elseif obj:IsA("Model") then
-			return obj:GetPivot().Position
-		else
-			error("Cannot get position: not a BasePart or Model")
-		end
-	end
-
-	local pos1 = getPosition(obj1)
-	local pos2 = getPosition(obj2)
+	local pos1 = getObjectPosition(obj1)
+	local pos2 = getObjectPosition(obj2)
 	return (pos1 - pos2).Magnitude
 end
 

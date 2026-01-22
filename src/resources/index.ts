@@ -127,7 +127,6 @@ export function registerResources(server: FastMCP): void {
     async load() {
       const port = getActiveBridgePort();
       const connected = bridge.isConnected();
-      const pendingCommands = bridge.pendingCount;
       const connInfo = bridge.getConnectionInfo();
 
       const status = {
@@ -141,7 +140,7 @@ export function registerResources(server: FastMCP): void {
           pluginConnected: connected,
           httpPolling: connInfo.httpConnected,
           websocketClients: connInfo.wsClients,
-          pendingCommands,
+          pendingCommands: bridge.pendingCount,
           status: !port ? "bridge_not_running" : connected ? "connected" : "waiting_for_plugin",
         },
         metrics: bridge.getMetrics(),

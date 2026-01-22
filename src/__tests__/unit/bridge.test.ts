@@ -1,14 +1,15 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { bridge, type RobloxCommand, type RobloxResult } from "../../utils/bridge";
+import { bridge } from "../../utils/bridge";
 
 describe("RobloxBridge", () => {
   beforeEach(() => {
     // Clear any pending state between tests
+    (bridge as { resetForTesting?: () => void }).resetForTesting?.();
     bridge.getPendingCommands();
   });
 
   describe("command queueing", () => {
-    test("adds commands to queue", () => {
+    test("adds commands to queue", async () => {
       const executePromise = bridge.execute("CreateInstance", { className: "Part" });
       const commands = bridge.getPendingCommands();
 
@@ -16,22 +17,35 @@ describe("RobloxBridge", () => {
       expect(commands[0].method).toBe("CreateInstance");
       expect(commands[0].params).toEqual({ className: "Part" });
       expect(commands[0].id).toBeTypeOf("string");
+
+      // Cleanup
+      bridge.handleResult({ id: commands[0].id, success: true, data: "ok" });
+      await executePromise;
     });
 
-    test("clears queue after getPendingCommands", () => {
-      bridge.execute("CreateInstance", { className: "Part" });
-      bridge.getPendingCommands();
+    test("clears queue after getPendingCommands", async () => {
+      const p1 = bridge.execute("CreateInstance", { className: "Part" });
+      const firstCommands = bridge.getPendingCommands();
       const commands = bridge.getPendingCommands();
 
       expect(commands).toHaveLength(0);
+
+      // Cleanup
+      bridge.handleResult({ id: firstCommands[0].id, success: true, data: "ok" });
+      await p1;
     });
 
-    test("generates unique IDs for commands", () => {
-      bridge.execute("CreateInstance", { className: "Part" });
-      bridge.execute("DeleteInstance", { path: "game.Workspace.Part" });
+    test("generates unique IDs for commands", async () => {
+      const p1 = bridge.execute("CreateInstance", { className: "Part" });
+      const p2 = bridge.execute("DeleteInstance", { path: "game.Workspace.Part" });
       const commands = bridge.getPendingCommands();
 
       expect(commands[0].id).not.toBe(commands[1].id);
+
+      // Cleanup
+      bridge.handleResult({ id: commands[0].id, success: true, data: "ok" });
+      bridge.handleResult({ id: commands[1].id, success: true, data: "ok" });
+      await Promise.all([p1, p2]);
     });
   });
 
@@ -68,7 +82,7 @@ describe("RobloxBridge", () => {
         error: "Instance not found: game.Workspace.NonExistent",
       });
 
-      await expect(executePromise).rejects.toThrow("Instance not found");
+      expect(executePromise).rejects.toThrow("Instance not found");
     });
 
     test("ignores results for unknown command IDs", () => {
@@ -134,7 +148,7 @@ describe("RobloxBridge", () => {
         bridge.handleResult({ id: cmd.id, success: true, data: "cleanup" });
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
 
       const initialCount = bridge.pendingCount;
 
@@ -146,9 +160,13 @@ describe("RobloxBridge", () => {
 
       const commands = bridge.getPendingCommands();
       bridge.handleResult({ id: commands[0].id, success: true, data: "ok" });
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
       expect(bridge.pendingCount).toBe(initialCount + 1);
 
       bridge.handleResult({ id: commands[1].id, success: true, data: "ok" });
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
       expect(bridge.pendingCount).toBe(initialCount);
 
       await Promise.all([promise1, promise2]);

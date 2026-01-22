@@ -12,9 +12,9 @@ async function findAvailablePort(startPort: number, maxAttempts: number = 10): P
           return new Response("test");
         },
       });
-      testServer.stop();
+      void testServer.stop();
       return port;
-    } catch (error) {
+    } catch {
       continue;
     }
   }
@@ -22,7 +22,7 @@ async function findAvailablePort(startPort: number, maxAttempts: number = 10): P
 }
 
 describe("HTTP Bridge Integration", () => {
-  let mockServer: Server<any> | undefined;
+  let mockServer: Server<unknown> | undefined;
   let TEST_PORT: number;
 
   beforeAll(async () => {
@@ -58,7 +58,7 @@ describe("HTTP Bridge Integration", () => {
 
   afterAll(() => {
     if (mockServer) {
-      mockServer.stop();
+      void mockServer.stop();
     }
   });
 
@@ -153,6 +153,7 @@ describe("Error Handling", () => {
     });
 
     expect(response.status).toBe(400);
-    mockServer.stop();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    void mockServer.stop();
   });
 });

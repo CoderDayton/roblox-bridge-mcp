@@ -15,9 +15,8 @@ export interface Config {
 }
 
 function parseNumber(value: string | undefined, defaultValue: number): number {
-  if (!value) return defaultValue;
   const parsed = Number(value);
-  return isNaN(parsed) ? defaultValue : parsed;
+  return isNaN(parsed) || !value ? defaultValue : parsed;
 }
 
 /** Generate a random API key */
@@ -29,5 +28,5 @@ export const config: Config = {
   bridgePort: parseNumber(process.env.ROBLOX_BRIDGE_PORT, 53847),
   timeout: parseNumber(process.env.ROBLOX_TIMEOUT_MS, 30_000),
   retries: parseNumber(process.env.ROBLOX_RETRIES, 2),
-  apiKey: process.env.ROBLOX_API_KEY || generateApiKey(),
+  apiKey: process.env.ROBLOX_API_KEY ?? generateApiKey(),
 };
