@@ -21,11 +21,11 @@ local TextChatService = game:GetService("TextChatService")
 local VERSION = "1.0.0"
 
 local CONFIG = {
-	BASE_PORT = 8081,
-	PORT_RANGE = 10, -- Try 8081-8090
+	BASE_PORT = 62847,
+	PORT_RANGE = 10, -- Try 62847-62856
 	RETRY_INTERVAL = 2.0,
 	RECONNECT_INTERVAL = 5.0,
-	API_KEY = "dev-key-12345", -- Default API key (override via plugin settings)
+	API_KEY = "7273eb6205c492baa2e88c4ec5858015f7563150442d9198",
 	USE_WEBSOCKET = true, -- Prefer WebSocket over long-polling
 }
 
