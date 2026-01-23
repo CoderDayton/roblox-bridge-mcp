@@ -671,7 +671,11 @@ export function startBridgeServer(): void {
   try {
     const server = tryStartServer(port);
     if (!server) {
-      throw new Error(`Port ${port} is in use. Please set ROBLOX_BRIDGE_PORT to a different port.`);
+      // Port in use - log warning but don't throw (allows MCP to continue)
+      console.error(`[Bridge] WARNING: Port ${port} is in use. Please set ROBLOX_BRIDGE_PORT to a different port.`);
+      console.error(`[Bridge] MCP server will start without Roblox bridge functionality.`);
+      logger.bridge.warn("Bridge server port in use - continuing without bridge", { port });
+      return;
     }
 
     activeBridgePort = port;
@@ -685,6 +689,7 @@ export function startBridgeServer(): void {
       error instanceof Error ? error.message : `Failed to start bridge server: ${String(error)}`;
 
     console.error(`[Bridge] ERROR: ${errorMsg}`);
+    console.error(`[Bridge] MCP server will start without Roblox bridge functionality.`);
     logger.bridge.error(
       "Bridge server startup failed - MCP server will still start",
       error instanceof Error ? error : undefined,
