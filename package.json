@@ -4,9 +4,6 @@
   "description": "MCP bridge connecting AI to Roblox Studio for real-time world building",
   "type": "module",
   "main": "src/index.ts",
-  "bin": {
-    "roblox-bridge-mcp": "./src/index.ts"
-  },
   "files": [
     "src",
     "plugin",
