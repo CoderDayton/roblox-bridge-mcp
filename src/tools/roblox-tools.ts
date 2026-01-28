@@ -102,10 +102,63 @@ const METHODS = [
   // History
   "Undo",
   "Redo",
+  // Animation & Character
+  "PlayAnimation",
+  "LoadAnimation",
+  "StopAnimation",
+  "SetCharacterAppearance",
+  "GetCharacter",
+  // GUI
+  "CreateGuiElement",
+  "SetGuiText",
+  "SetGuiSize",
+  "SetGuiPosition",
+  "SetGuiVisible",
+  "DestroyGuiElement",
+  // Networking
+  "FireRemoteEvent",
+  "InvokeRemoteFunction",
+  "CreateRemoteEvent",
+  "CreateRemoteFunction",
+  // DataStore
+  "GetDataStore",
+  "SetDataStoreValue",
+  "GetDataStoreValue",
+  "RemoveDataStoreValue",
+  // Tween
+  "CreateTween",
+  "TweenProperty",
+  // Raycasting
+  "Raycast",
+  "RaycastTo",
+  // Constraints
+  "CreateWeld",
+  "CreateMotor6D",
+  // Particles
+  "CreateParticleEmitter",
+  "EmitParticles",
+  // Materials
+  "ApplyDecal",
+  "ApplyTexture",
+  // Camera
+  "SetCameraType",
+  "ZoomCamera",
+  "GetCameraType",
+  // Marketplace
+  "InsertAsset",
+  "InsertMesh",
+  // Teams
+  "CreateTeam",
+  "SetPlayerTeam",
+  "GetPlayerTeam",
+  // Leaderstats
+  "CreateLeaderstat",
+  "SetLeaderstatValue",
+  "GetLeaderstatValue",
 ] as const;
 
 /**
- * Comprehensive description of all 99 Roblox Studio API methods
+ * Comprehensive description of all 158 Roblox Studio API methods
  * Format: MethodName(param1,param2?,param3?)
  * Optional params marked with ?, arrays marked with [], numeric ranges shown as min-max
  */
@@ -183,11 +236,51 @@ GetDistance(path1,path2)
 HighlightObject(path,color?,duration?)
 Chat(message,color?)
 Undo()
-Redo()`;
+Redo()
+PlayAnimation(path,animationId)
+LoadAnimation(path,animationId)
+StopAnimation(path)
+SetCharacterAppearance(playerPath,assetId)
+GetCharacter(playerName)
+CreateGuiElement(className,parentPath,name?,properties?)
+SetGuiText(path,text)
+SetGuiSize(path,size[2])
+SetGuiPosition(path,position[2])
+SetGuiVisible(path,visible)
+DestroyGuiElement(path)
+FireRemoteEvent(path,args[])
+InvokeRemoteFunction(path,args[])
+CreateRemoteEvent(name,parentPath?)
+CreateRemoteFunction(name,parentPath?)
+GetDataStore(name)
+SetDataStoreValue(storeName,key,value)
+GetDataStoreValue(storeName,key)
+RemoveDataStoreValue(storeName,key)
+CreateTween(path,targetProperties,duration?)
+TweenProperty(path,property,endValue,duration?)
+Raycast(origin[3],direction[3],params?)
+RaycastTo(path,targetPath,params?)
+CreateWeld(part0Path,part1Path,properties?)
+CreateMotor6D(part0Path,part1Path,properties?)
+CreateParticleEmitter(path,properties?)
+EmitParticles(path,count?)
+ApplyDecal(path,texture,parentPath?)
+ApplyTexture(path,texture,parentPath?)
+SetCameraType(cameraType)
+ZoomCamera(amount)
+GetCameraType()
+InsertAsset(assetId,parentPath?)
+InsertMesh(meshId,parentPath?)
+CreateTeam(name,color?)
+SetPlayerTeam(playerName,teamName)
+GetPlayerTeam(playerName)
+CreateLeaderstat(name,parentPath?)
+SetLeaderstatValue(path,value)
+GetLeaderstatValue(path)`;
 
 /**
  * Register all Roblox Studio tools with the FastMCP server
- * Registers a single 'roblox' tool that dispatches to 99 different methods
+ * Registers a single 'roblox' tool that dispatches to 158 different methods
  * @param server - FastMCP server instance to register tools with
  */
 export function registerAllTools(server: FastMCP): void {

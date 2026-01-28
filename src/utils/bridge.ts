@@ -672,7 +672,9 @@ export function startBridgeServer(): void {
     const server = tryStartServer(port);
     if (!server) {
       // Port in use - log warning but don't throw (allows MCP to continue)
-      console.error(`[Bridge] WARNING: Port ${port} is in use. Please set ROBLOX_BRIDGE_PORT to a different port.`);
+      console.error(
+        `[Bridge] WARNING: Port ${port} is in use. Please set ROBLOX_BRIDGE_PORT to a different port.`
+      );
       console.error(`[Bridge] MCP server will start without Roblox bridge functionality.`);
       logger.bridge.warn("Bridge server port in use - continuing without bridge", { port });
       return;

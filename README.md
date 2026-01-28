@@ -31,7 +31,7 @@ roblox-bridge-mcp enables AI agents to directly interact with Roblox Studio thro
 
 ## Features
 
-- **Single Unified Tool** - All 99 operations accessible via one `roblox` tool with method dispatch
+- **Single Unified Tool** - All 158 operations accessible via one `roblox` tool with method dispatch
 - **API Key Security** - Simple authentication to protect the bridge server
 - **Automatic Port Discovery** - Bridge server tries ports 8081-8090 with automatic fallback
 - **Long-Polling & WebSocket** - Near-instant command delivery (replaces 300ms polling)
