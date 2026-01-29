@@ -74,12 +74,15 @@ const METHODS = [
   "SetAttribute",
   "GetAttribute",
   "GetAttributes",
+  "RemoveAttribute",
   "AddTag",
   "RemoveTag",
   "GetTags",
+  "GetTagged",
   "HasTag",
   // Players
   "GetPlayers",
+  "GetPlayerInfo",
   "GetPlayerPosition",
   "TeleportPlayer",
   "KickPlayer",
@@ -91,9 +94,12 @@ const METHODS = [
   "StopSound",
   // Terrain
   "FillTerrain",
+  "FillTerrainRegion",
   "ClearTerrain",
+  "GetTerrainInfo",
   // Camera
   "SetCameraPosition",
+  "SetCameraTarget",
   "SetCameraFocus",
   "GetCameraPosition",
   "SetCameraType",
@@ -106,6 +112,7 @@ const METHODS = [
   // History
   "Undo",
   "Redo",
+  "RecordUndo",
   // Animation & Character
   "PlayAnimation",
   "LoadAnimation",
@@ -158,7 +165,7 @@ const METHODS = [
 ] as const;
 
 /**
- * Comprehensive description of all 114 Roblox Studio API methods
+ * Comprehensive description of all 122 Roblox Studio API methods
  * Format: MethodName(param1,param2?,param3?)
  * Optional params marked with ?, arrays marked with [], numeric ranges shown as min-max
  */
@@ -176,25 +183,25 @@ CreateScript(name,parentPath,source,type?) GetScriptSource(path) SetScriptSource
 AppendToScript(path,code) ReplaceScriptLines(path,startLine,endLine,content) InsertScriptLines(path,lineNumber,content) RunConsoleCommand(code)
 GetSelection() SetSelection(paths[]) ClearSelection() AddToSelection(paths[]) GroupSelection(name) UngroupModel(path)
 SetTimeOfDay(time) SetBrightness(brightness) SetAtmosphereDensity(density) CreateLight(parentPath,type,brightness?,color?)
-SetAttribute(path,name,value) GetAttribute(path,name) GetAttributes(path) AddTag(path,tag) RemoveTag(path,tag) GetTags(path) HasTag(path,tag)
-GetPlayers() GetPlayerPosition(username) TeleportPlayer(username,position[3]) KickPlayer(username,reason?)
+SetAttribute(path,name,value) GetAttribute(path,name) GetAttributes(path) RemoveAttribute(path,name) AddTag(path,tag) RemoveTag(path,tag) GetTags(path) GetTagged(tag) HasTag(path,tag)
+GetPlayers() GetPlayerInfo(name) GetPlayerPosition(username) TeleportPlayer(username,position[3]) KickPlayer(username,reason?)
 SavePlace() GetPlaceInfo() PlaySound(soundId,parentPath?,volume?) StopSound(path)
-FillTerrain(material,minX,minY,minZ,maxX,maxY,maxZ) ClearTerrain()
-SetCameraPosition(x,y,z) SetCameraFocus(path) GetCameraPosition() SetCameraType(cameraType) ZoomCamera(amount) GetCameraType()
-GetDistance(path1,path2) HighlightObject(path,color?,duration?) Chat(message) Undo() Redo()
-PlayAnimation(humanoidPath,animationId) LoadAnimation(humanoidPath,animationId) StopAnimation(humanoidPath)
-SetCharacterAppearance(playerName,shirtId?,pantsId?) GetCharacter(playerName)
+FillTerrain(material,minX,minY,minZ,maxX,maxY,maxZ) FillTerrainRegion(min[3],max[3],material) ClearTerrain() GetTerrainInfo()
+SetCameraPosition(x,y,z) SetCameraTarget(x,y,z) SetCameraFocus(path) GetCameraPosition() SetCameraType(cameraType) ZoomCamera(distance) GetCameraType()
+GetDistance(path1,path2) HighlightObject(path,color?,duration?) Chat(message) Undo() Redo() RecordUndo(name)
+PlayAnimation(trackId,fadeTime?,weight?,speed?) LoadAnimation(humanoidPath,animationId) StopAnimation(trackId,fadeTime?)
+SetCharacterAppearance(playerName,userId?) GetCharacter(playerName)
 CreateGuiElement(className,parentPath,name?,properties?) SetGuiText(path,text) SetGuiSize(path,scaleX,scaleY,offsetX?,offsetY?)
 SetGuiPosition(path,scaleX,scaleY,offsetX?,offsetY?) SetGuiVisible(path,visible) DestroyGuiElement(path)
-FireRemoteEvent(path,args[]?) InvokeRemoteFunction(path,args[]?) CreateRemoteEvent(name,parentPath?) CreateRemoteFunction(name,parentPath?)
-GetDataStore(name) SetDataStoreValue(storeName,key,value) GetDataStoreValue(storeName,key) RemoveDataStoreValue(storeName,key)
-CreateTween(path,properties,duration?,easingStyle?,easingDirection?) TweenProperty(path,property,targetValue,duration?)
-Raycast(origin[3],direction[3],filterDescendants[]?,filterType?) RaycastTo(originPath,targetPath,filterDescendants[]?)
+FireRemoteEvent(path,playerName?,args[]?) InvokeRemoteFunction(path,playerName,args[]?) CreateRemoteEvent(name,parentPath?) CreateRemoteFunction(name,parentPath?)
+GetDataStore(name,scope?) SetDataStoreValue(storeName,key,value) GetDataStoreValue(storeName,key) RemoveDataStoreValue(storeName,key)
+CreateTween(path,goals,duration?,easingStyle?,easingDirection?,repeatCount?,reverses?,delayTime?,autoPlay?) TweenProperty(path,property,value,duration?)
+Raycast(origin[3],direction[3],filterDescendants[]?,filterType?) RaycastTo(originPath,targetPath,filterDescendants[]?,filterType?)
 CreateWeld(part0Path,part1Path) CreateMotor6D(part0Path,part1Path,name?)
 CreateParticleEmitter(parentPath,properties?) EmitParticles(path,count?)
 ApplyDecal(parentPath,textureId,face?) ApplyTexture(parentPath,textureId,face?)
-InsertAsset(assetId,parentPath?) InsertMesh(parentPath,meshId,textureId?)
-CreateTeam(name,teamColor?) SetPlayerTeam(playerName,teamName) GetPlayerTeam(playerName)
+InsertAsset(assetId,parentPath?) InsertMesh(parentPath,meshId,textureId?,name?)
+CreateTeam(name,color?,autoAssignable?) SetPlayerTeam(playerName,teamName) GetPlayerTeam(playerName)
 CreateLeaderstat(playerName,statName,valueType?,initialValue?) SetLeaderstatValue(playerName,statName,value) GetLeaderstatValue(playerName,statName)`;
 
 /**
