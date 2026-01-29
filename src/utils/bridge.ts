@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import { z } from "zod";
 import { RobloxTimeoutError, RobloxExecutionError } from "./errors";
-import { config } from "../config";
+import { config, isVersionCompatible } from "../config";
 import { logger } from "./logger";
 import type { ServerWebSocket } from "bun";
 
@@ -149,20 +149,18 @@ class RobloxBridge extends EventEmitter {
     string,
     { count: number; avgDuration: number; failures: number }
   > {
-    const methodStats: Record<string, { count: number; avgDuration: number; failures: number }> =
-      {};
+    const methodStats = new Map<string, { count: number; avgDuration: number; failures: number }>();
     for (const cmd of this.commandHistory) {
-      if (!methodStats[cmd.method]) {
-        methodStats[cmd.method] = { count: 0, avgDuration: 0, failures: 0 };
+      const existing = methodStats.get(cmd.method);
+      const stats = existing ?? { count: 0, avgDuration: 0, failures: 0 };
+      stats.avgDuration = (stats.avgDuration * stats.count + cmd.duration) / (stats.count + 1);
+      stats.count++;
+      if (!cmd.success) {
+        stats.failures++;
       }
-      const stats = methodStats[cmd.method];
-      if (stats) {
-        stats.avgDuration = (stats.avgDuration * stats.count + cmd.duration) / (stats.count + 1);
-        stats.count++;
-        if (!cmd.success) stats.failures++;
-      }
+      methodStats.set(cmd.method, stats);
     }
-    return methodStats;
+    return Object.fromEntries(methodStats);
   }
 
   /**
@@ -185,12 +183,16 @@ class RobloxBridge extends EventEmitter {
     method = validated.method;
     params = validated.params;
     retries = validated.retries ?? 1;
+
+    let lastError: Error | undefined;
+
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         return await this.executeOnce<T>(method, params, attempt + 1);
       } catch (error) {
         const isTimeout = error instanceof RobloxTimeoutError;
         const shouldRetry = isTimeout && attempt < retries;
+        lastError = error instanceof Error ? error : new Error(String(error));
 
         if (shouldRetry) {
           logger.bridge.warn(`Timeout on attempt ${attempt + 1}/${retries + 1}, retrying...`, {
@@ -202,14 +204,17 @@ class RobloxBridge extends EventEmitter {
           continue;
         }
 
-        if (error instanceof Error) {
-          logger.bridge.error("Command failed", error, { method, attempt: attempt + 1 });
-        }
+        logger.bridge.error("Command failed", lastError, { method, attempt: attempt + 1 });
         throw error;
       }
     }
 
-    throw new RobloxTimeoutError(`Failed after ${retries + 1} attempts`, method, retries + 1);
+    // This should only be reached if retries is somehow negative (validated to be >= 0)
+    // or if the loop completes without returning or throwing (shouldn't happen)
+    throw (
+      lastError ??
+      new RobloxTimeoutError(`Failed after ${retries + 1} attempts`, method, retries + 1)
+    );
   }
 
   /**
@@ -286,15 +291,26 @@ class RobloxBridge extends EventEmitter {
 
   /**
    * Notify all waiting clients (long-polls and WebSockets) about new commands
+   * Both connection types are notified when commands are available, with the first
+   * responder getting the commands (queue is drained on first notification)
    * @private
    */
   private notifyNewCommand(): void {
-    if (this.pendingPolls.length > 0) {
-      this.notifyLongPolls();
+    if (this.commandQueue.length === 0) {
       return;
     }
 
-    if (this.wsClients.size > 0 && this.commandQueue.length > 0) {
+    // Notify both long-poll and WebSocket clients
+    // The first to drain the queue wins; others get empty arrays
+    const hasLongPolls = this.pendingPolls.length > 0;
+    const hasWebSockets = this.wsClients.size > 0;
+
+    if (hasLongPolls) {
+      this.notifyLongPolls();
+    }
+
+    // Also notify WebSocket clients (they'll check if queue is empty)
+    if (hasWebSockets) {
       this.notifyWebSocketClients();
     }
   }
@@ -318,6 +334,9 @@ class RobloxBridge extends EventEmitter {
    */
   private notifyWebSocketClients(): void {
     const commands = this.drainCommandQueue();
+    if (commands.length === 0) {
+      return; // Queue already drained by long-poll
+    }
     const message = JSON.stringify({ type: "commands", data: commands });
     for (const client of this.wsClients) {
       client.send(message);
@@ -384,12 +403,23 @@ class RobloxBridge extends EventEmitter {
     }
 
     return new Promise<RobloxCommand[]>((resolve) => {
+      let pollEntry: PendingPoll | null = null;
+
+      const cleanup = (): void => {
+        if (pollEntry) {
+          clearTimeout(pollEntry.timeout);
+          this.removePendingPoll(resolve);
+          pollEntry = null;
+        }
+      };
+
       const timeout = setTimeout(() => {
-        this.removePendingPoll(resolve);
+        cleanup();
         resolve([]);
       }, this.longPollTimeout);
 
-      this.pendingPolls.push({ resolve, timeout });
+      pollEntry = { resolve, timeout };
+      this.pendingPolls.push(pollEntry);
     });
   }
 
@@ -492,6 +522,7 @@ export function getActiveBridgePort(): number | null {
 function getHealthStatus(port: number): {
   status: string;
   service: string;
+  version: string;
   port: number;
   connected: boolean;
   connections: { http: boolean; websocket: number };
@@ -501,6 +532,7 @@ function getHealthStatus(port: number): {
   return {
     status: "ok",
     service: "roblox-bridge-mcp",
+    version: config.version,
     port,
     connected: bridge.isConnected(),
     connections: {
@@ -512,15 +544,47 @@ function getHealthStatus(port: number): {
 }
 
 /**
- * Extract API key from request headers or query parameters
+ * Extract plugin version from request headers or query parameters
  * @param req - HTTP request
  * @param url - Parsed URL
- * @returns API key if present, null otherwise
+ * @returns Version string if present, null otherwise
  */
-function getApiKey(req: Request, url: URL): string | null {
-  const authHeader = req.headers.get("Authorization");
-  const apiKeyParam = url.searchParams.get("key");
-  return authHeader?.replace("Bearer ", "") ?? apiKeyParam;
+function getPluginVersion(req: Request, url: URL): string | null {
+  const versionHeader = req.headers.get("X-Plugin-Version");
+  const versionParam = url.searchParams.get("version");
+  return versionHeader ?? versionParam;
+}
+
+/**
+ * Validate plugin version compatibility
+ * @param pluginVersion - Version from plugin
+ * @returns Error response if incompatible, null if compatible
+ */
+function validateVersion(pluginVersion: string | null): Response | null {
+  if (!pluginVersion) {
+    return Response.json(
+      {
+        error: "Version Required",
+        message: "Plugin version header (X-Plugin-Version) or query param (version) is required",
+        serverVersion: config.version,
+      },
+      { status: 400 }
+    );
+  }
+
+  if (!isVersionCompatible(pluginVersion)) {
+    return Response.json(
+      {
+        error: "Version Mismatch",
+        message: `Plugin version ${pluginVersion} is not compatible with server version ${config.version}`,
+        serverVersion: config.version,
+        pluginVersion,
+      },
+      { status: 400 }
+    );
+  }
+
+  return null;
 }
 
 /**
@@ -561,11 +625,17 @@ function handlePollRequest(url: URL): Promise<Response> | Response {
  * @param req - HTTP request with result in body
  * @returns Success response promise
  */
-function handleResultPost(req: Request): Promise<Response> {
-  return req.json().then((result: RobloxResult) => {
-    bridge.handleResult(result);
+async function handleResultPost(req: Request): Promise<Response> {
+  try {
+    const result = (await req.json()) as unknown;
+    // Validation is done inside handleResult via Zod schema
+    bridge.handleResult(result as RobloxResult);
     return Response.json({ status: "ok" });
-  });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Invalid request";
+    logger.bridge.error("Failed to process result", error instanceof Error ? error : undefined);
+    return Response.json({ error: "Bad Request", message: errorMsg }, { status: 400 });
+  }
 }
 
 /**
@@ -576,6 +646,31 @@ function handleResultPost(req: Request): Promise<Response> {
 function handleWebSocketMessage(ws: ServerWebSocket<WSClientData>, message: string | Buffer): void {
   try {
     const data = JSON.parse(message.toString());
+
+    // Handle version handshake from plugin
+    if (data.type === "handshake" && data.version) {
+      if (!isVersionCompatible(data.version)) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            code: "VERSION_MISMATCH",
+            message: `Plugin version ${data.version} is not compatible with server version ${config.version}`,
+            serverVersion: config.version,
+          })
+        );
+        ws.close(1008, "Version mismatch");
+        return;
+      }
+      // Version OK - send confirmation
+      ws.send(
+        JSON.stringify({
+          type: "handshake_ok",
+          serverVersion: config.version,
+          pluginVersion: data.version,
+        })
+      );
+      return;
+    }
 
     if (data.type === "result" && data.data) {
       bridge.handleResult(data.data as RobloxResult);
@@ -600,20 +695,21 @@ function handleRequest(
 ): Response | Promise<Response> | undefined {
   const url = new URL(req.url);
 
+  // Health endpoint - no version check required (used for discovery)
   if (req.method === "GET" && url.pathname === "/health") {
     return Response.json(getHealthStatus(port));
   }
 
-  const providedKey = getApiKey(req, url);
-  if (providedKey !== config.apiKey) {
-    return Response.json(
-      { error: "Unauthorized", message: "Invalid or missing API key" },
-      { status: 401 }
-    );
-  }
-
+  // WebSocket upgrade - version checked after connection via message
   if (url.pathname === "/ws") {
     return handleWebSocketUpgrade(req, server);
+  }
+
+  // All other endpoints require version validation
+  const pluginVersion = getPluginVersion(req, url);
+  const versionError = validateVersion(pluginVersion);
+  if (versionError) {
+    return versionError;
   }
 
   if (req.method === "GET" && url.pathname === "/poll") {
@@ -641,7 +737,13 @@ function tryStartServer(port: number): ReturnType<typeof Bun.serve> | null {
       websocket: {
         open(ws) {
           bridge.addWebSocketClient(ws);
-          ws.send(JSON.stringify({ type: "connected", clientId: ws.data.id }));
+          ws.send(
+            JSON.stringify({
+              type: "connected",
+              clientId: ws.data.id,
+              serverVersion: config.version,
+            })
+          );
         },
         message(ws, message) {
           handleWebSocketMessage(ws, message);
@@ -672,17 +774,17 @@ export function startBridgeServer(): void {
     const server = tryStartServer(port);
     if (!server) {
       // Port in use - log warning but don't throw (allows MCP to continue)
-      console.error(`[Bridge] WARNING: Port ${port} is in use. Please set ROBLOX_BRIDGE_PORT to a different port.`);
+      console.error(
+        `[Bridge] WARNING: Port ${port} is in use. Please set ROBLOX_BRIDGE_PORT to a different port.`
+      );
       console.error(`[Bridge] MCP server will start without Roblox bridge functionality.`);
       logger.bridge.warn("Bridge server port in use - continuing without bridge", { port });
       return;
     }
 
     activeBridgePort = port;
-    console.error(`[Bridge] Roblox bridge server running on port ${port}`);
-    console.error(`[Bridge] API Key: ${config.apiKey}`);
-    console.error(`[Bridge] Set this key in your Roblox plugin to connect`);
-    logger.bridge.info("Roblox bridge server started", { port });
+    console.error(`[Bridge] Roblox bridge server running on port ${port} (v${config.version})`);
+    logger.bridge.info("Roblox bridge server started", { port, version: config.version });
   } catch (error) {
     activeBridgePort = null;
     const errorMsg =

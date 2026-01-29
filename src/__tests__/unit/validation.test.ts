@@ -1,29 +1,49 @@
 import { describe, test, expect } from "bun:test";
 import { z } from "zod";
+import { isVersionCompatible, config } from "../../config";
 
-// Import the METHODS array and test it matches our schema
+// Complete METHODS array matching src/tools/roblox-tools.ts (74 methods)
 const METHODS = [
+  // Instance management
   "CreateInstance",
   "DeleteInstance",
   "CloneInstance",
   "RenameInstance",
+  // Instance discovery & info
+  "GetFullName",
+  "GetParent",
+  "IsA",
+  "GetClassName",
+  "WaitForChild",
+  // Properties
   "SetProperty",
   "GetProperty",
+  // Hierarchy
   "GetChildren",
   "GetDescendants",
   "FindFirstChild",
   "GetService",
+  // Transforms
   "MoveTo",
   "SetPosition",
+  "GetPosition",
   "SetRotation",
+  "GetRotation",
   "SetSize",
+  "GetSize",
   "PivotTo",
   "GetPivot",
+  // Appearance
   "SetColor",
   "SetTransparency",
   "SetMaterial",
+  // Physics
   "SetAnchored",
   "SetCanCollide",
+  "CreateConstraint",
+  "SetPhysicalProperties",
+  "GetMass",
+  // Scripting
   "CreateScript",
   "GetScriptSource",
   "SetScriptSource",
@@ -31,16 +51,19 @@ const METHODS = [
   "ReplaceScriptLines",
   "InsertScriptLines",
   "RunConsoleCommand",
+  // Selection
   "GetSelection",
   "SetSelection",
   "ClearSelection",
   "AddToSelection",
   "GroupSelection",
   "UngroupModel",
+  // Lighting
   "SetTimeOfDay",
   "SetBrightness",
   "SetAtmosphereDensity",
   "CreateLight",
+  // Attributes & Tags
   "SetAttribute",
   "GetAttribute",
   "GetAttributes",
@@ -48,17 +71,31 @@ const METHODS = [
   "RemoveTag",
   "GetTags",
   "HasTag",
+  // Players
   "GetPlayers",
   "GetPlayerPosition",
   "TeleportPlayer",
   "KickPlayer",
+  // Place
   "SavePlace",
   "GetPlaceInfo",
+  // Audio
   "PlaySound",
   "StopSound",
+  // Terrain
+  "FillTerrain",
+  "ClearTerrain",
+  // Camera
+  "SetCameraPosition",
+  "SetCameraFocus",
+  "GetCameraPosition",
+  // Utilities
   "GetDistance",
   "HighlightObject",
   "Chat",
+  // History
+  "Undo",
+  "Redo",
 ] as const;
 
 const RobloxMethodSchema = z.enum(METHODS);
@@ -77,8 +114,8 @@ describe("Tool Parameter Validation", () => {
       expect(() => RobloxMethodSchema.parse("")).toThrow();
     });
 
-    test("has all 56 methods", () => {
-      expect(METHODS.length).toBe(56);
+    test("has all 74 methods", () => {
+      expect(METHODS.length).toBe(74);
     });
   });
 
@@ -228,5 +265,44 @@ describe("Tool Parameter Validation", () => {
         })
       ).toThrow();
     });
+  });
+});
+
+describe("Version Compatibility", () => {
+  test("config has version defined", () => {
+    expect(config.version).toBeDefined();
+    expect(typeof config.version).toBe("string");
+    expect(config.version).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  test("accepts matching major.minor versions", () => {
+    // Same version should be compatible
+    expect(isVersionCompatible(config.version)).toBe(true);
+  });
+
+  test("accepts different patch versions", () => {
+    // Different patch versions should be compatible (1.1.0 vs 1.1.5)
+    const [major, minor] = config.version.split(".");
+    expect(isVersionCompatible(`${major}.${minor}.0`)).toBe(true);
+    expect(isVersionCompatible(`${major}.${minor}.5`)).toBe(true);
+    expect(isVersionCompatible(`${major}.${minor}.99`)).toBe(true);
+  });
+
+  test("rejects different minor versions", () => {
+    const [major, minor] = config.version.split(".");
+    const differentMinor = parseInt(minor) + 1;
+    expect(isVersionCompatible(`${major}.${differentMinor}.0`)).toBe(false);
+  });
+
+  test("rejects different major versions", () => {
+    const [major] = config.version.split(".");
+    const differentMajor = parseInt(major) + 1;
+    expect(isVersionCompatible(`${differentMajor}.0.0`)).toBe(false);
+  });
+
+  test("rejects malformed version strings", () => {
+    expect(isVersionCompatible("")).toBe(false);
+    expect(isVersionCompatible("1")).toBe(false);
+    expect(isVersionCompatible("invalid")).toBe(false);
   });
 });

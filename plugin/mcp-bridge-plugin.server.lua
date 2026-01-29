@@ -24,12 +24,10 @@ local TweenService = game:GetService("TweenService")
 local VERSION = "1.0.0"
 
 local CONFIG = {
-	BASE_PORT = 53847,
+	BASE_PORT = 62847, -- Must match TypeScript server default
+	PORT_RANGE = 10, -- Try 62847-62856
 	RETRY_INTERVAL = 2,
-	MAX_RETRY_INTERVAL = 10,
-	-- Default API key - matches server .env
-	-- Users can override via Settings panel or _G.MCP_SetApiKey('key')
-	API_KEY = "7273eb6205c492baa2e88c4ec5858015f7563150442d9198",
+	MAX_RETRY_INTERVAL = 30,
 }
 
 --------------------------------------------------------------------------------
@@ -41,7 +39,7 @@ local isEnabled = false  -- Start disabled, user must click Connect
 local retryInterval = CONFIG.RETRY_INTERVAL
 local activePort = nil
 local serverUrl = nil
-local apiKey = nil
+local serverVersion = nil  -- Server version from handshake
 local ui = nil
 
 --------------------------------------------------------------------------------
@@ -265,7 +263,6 @@ local function createUI(props)
 		port = "-",
 		commands = 0,
 		uptime = "00:00:00",
-		apiKey = props.getCurrentKey(),
 	})
 
 	local container = Instance.new("Frame")
@@ -399,30 +396,25 @@ local function createUI(props)
 			metrics["Status"].Text = state.connected and "Connected" or "Disconnected"
 			TweenService:Create(metrics["Status"], TWEEN_SLOW, { TextColor3 = color }):Play()
 		end
-		
+
 		-- Update host
 		if changed.host then
 			metrics["Host"].Text = state.host
 		end
-		
+
 		-- Update port
 		if changed.port then
 			metrics["Port"].Text = tostring(state.port)
 		end
-		
+
 		-- Update commands count
 		if changed.commands then
 			metrics["Commands"].Text = tostring(state.commands)
 		end
-		
+
 		-- Update uptime
 		if changed.uptime then
 			metrics["Uptime"].Text = state.uptime
-		end
-		
-		-- Update API key display
-		if changed.apiKey then
-			statusLabel.Text = "Current: " .. (state.apiKey and string.sub(state.apiKey, 1, 8) .. "..." or "not set")
 		end
 	end)
 
@@ -508,132 +500,13 @@ local function createUI(props)
 		end
 	end)
 
-	-- Settings Panel
-	local settingsPanel = Instance.new("Frame")
-	settingsPanel.Name = "SettingsPanel"
-	settingsPanel.Size = UDim2.new(1, 0, 0, 110)
-	settingsPanel.BackgroundColor3 = COLORS.panelBg
-	settingsPanel.BorderSizePixel = 0
-	settingsPanel.LayoutOrder = 4
-	settingsPanel.Parent = container
-
-	local settingsCorner = Instance.new("UICorner")
-	settingsCorner.CornerRadius = UDim.new(0, 6)
-	settingsCorner.Parent = settingsPanel
-
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, -24, 0, 26)
-	label.Position = UDim2.new(0, 12, 0, 8)
-	label.BackgroundTransparency = 1
-	label.Text = "API Key"
-	label.Text = "API Key"
-	label.TextColor3 = COLORS.textDim
-	label.TextSize = 16
-	label.FontFace = FONTS.Medium
-	label.Parent = settingsPanel
-
-	local inputContainer = Instance.new("Frame")
-	inputContainer.Size = UDim2.new(1, -24, 0, 36)
-	inputContainer.Position = UDim2.new(0, 12, 0, 36)
-	inputContainer.BackgroundColor3 = COLORS.inputBg
-	inputContainer.BorderSizePixel = 0
-	inputContainer.Parent = settingsPanel
-
-	local inputCorner = Instance.new("UICorner")
-	inputCorner.CornerRadius = UDim.new(0, 4)
-	inputCorner.Parent = inputContainer
-
-	local inputStroke = Instance.new("UIStroke")
-	inputStroke.Color = COLORS.border
-	inputStroke.Thickness = 1
-	inputStroke.Parent = inputContainer
-
-	local inputBox = Instance.new("TextBox")
-	inputBox.Size = UDim2.new(1, -90, 1, 0)
-	inputBox.Position = UDim2.new(0, 10, 0, 0)
-	inputBox.BackgroundTransparency = 1
-	inputBox.Text = ""
-	inputBox.PlaceholderText = "Paste key here..."
-	inputBox.PlaceholderColor3 = COLORS.placeholder
-	inputBox.TextColor3 = COLORS.text
-	inputBox.TextSize = 15
-	inputBox.FontFace = FONTS.Mono
-	inputBox.TextXAlignment = Enum.TextXAlignment.Left
-	inputBox.ClearTextOnFocus = false
-	inputBox.Parent = inputContainer
-
-	local saveBtn = Instance.new("TextButton")
-	saveBtn.Size = UDim2.new(0, 64, 0, 28)
-	saveBtn.Position = UDim2.new(1, -72, 0.5, -14)
-	saveBtn.BackgroundColor3 = COLORS.primary
-	saveBtn.BorderSizePixel = 0
-	saveBtn.Text = "Save"
-	saveBtn.TextColor3 = COLORS.text
-	saveBtn.TextSize = 16
-	saveBtn.FontFace = FONTS.Medium
-	saveBtn.AutoButtonColor = false
-	saveBtn.Parent = inputContainer
-
-	local saveBtnCorner = Instance.new("UICorner")
-	saveBtnCorner.CornerRadius = UDim.new(0, 4)
-	saveBtnCorner.Parent = saveBtn
-
-	local statusLabel = Instance.new("TextLabel")
-	statusLabel.Size = UDim2.new(1, -24, 0, 22)
-	statusLabel.Position = UDim2.new(0, 12, 0, 78)
-	statusLabel.BackgroundTransparency = 1
-				statusLabel.Text = "Current: " .. props.getCurrentKey()
-	statusLabel.TextColor3 = COLORS.textDim
-	statusLabel.TextSize = 14
-	statusLabel.FontFace = FONTS.Regular
-	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-	statusLabel.TextTruncate = Enum.TextTruncate.AtEnd
-	statusLabel.Parent = settingsPanel
-
-	inputBox.Focused:Connect(function()
-		TweenService:Create(inputStroke, TWEEN_INFO, { Color = COLORS.borderFocus }):Play()
-		TweenService:Create(inputContainer, TWEEN_INFO, { BackgroundColor3 = COLORS.inputBgFocus }):Play()
-	end)
-
-	inputBox.FocusLost:Connect(function()
-		TweenService:Create(inputStroke, TWEEN_INFO, { Color = COLORS.border }):Play()
-		TweenService:Create(inputContainer, TWEEN_INFO, { BackgroundColor3 = COLORS.inputBg }):Play()
-	end)
-
-	saveBtn.MouseEnter:Connect(function()
-		TweenService:Create(saveBtn, TWEEN_INFO, { BackgroundColor3 = COLORS.primaryHover }):Play()
-	end)
-
-	saveBtn.MouseLeave:Connect(function()
-		TweenService:Create(saveBtn, TWEEN_INFO, { BackgroundColor3 = COLORS.primary }):Play()
-	end)
-
-	saveBtn.MouseButton1Down:Connect(function()
-		TweenService:Create(saveBtn, TWEEN_INFO, { BackgroundColor3 = COLORS.primaryActive }):Play()
-	end)
-
-	saveBtn.MouseButton1Click:Connect(function()
-		TweenService:Create(saveBtn, TWEEN_INFO, { BackgroundColor3 = COLORS.primaryHover }):Play()
-		local key = inputBox.Text
-		if key and key ~= "" then
-			props.onSaveKey(key)
-			statusLabel.Text = "Saved"
-			TweenService:Create(statusLabel, TWEEN_INFO, { TextColor3 = COLORS.success }):Play()
-			inputBox.Text = ""
-			task.delay(2, function()
-	statusLabel.Text = "Current: " .. props.getCurrentKey()
-				TweenService:Create(statusLabel, TWEEN_INFO, { TextColor3 = COLORS.textDim }):Play()
-			end)
-		end
-	end)
-
 	-- History Panel
 	local historyPanel = Instance.new("Frame")
 	historyPanel.Name = "HistoryPanel"
-	historyPanel.Size = UDim2.new(1, 0, 1, -402)
+	historyPanel.Size = UDim2.new(1, 0, 1, -286)  -- Adjusted: removed 116px settings panel
 	historyPanel.BackgroundColor3 = COLORS.panelBg
 	historyPanel.BorderSizePixel = 0
-	historyPanel.LayoutOrder = 5
+	historyPanel.LayoutOrder = 4
 	historyPanel.Parent = container
 
 	local historyCorner = Instance.new("UICorner")
@@ -759,8 +632,10 @@ local function createUI(props)
 		entry.Parent = scrollFrame
 		entryCount = entryCount + 1
 
+		-- Remove oldest entries when list exceeds limit
+		-- Since we insert at position 1, oldest entries are at the end
 		while #historyList > 100 do
-			local old = table.remove(historyList)
+			local old = table.remove(historyList) -- Removes from end (oldest)
 			if old then
 				old:Destroy()
 			end
@@ -791,29 +666,6 @@ local function createUI(props)
 
 	return api
 end
-
---------------------------------------------------------------------------------
--- API Key Management
---------------------------------------------------------------------------------
-
-local function getApiKey()
-	local savedKey = plugin:GetSetting("MCP_API_KEY")
-	if savedKey and savedKey ~= "" then
-		return savedKey
-	end
-	if CONFIG.API_KEY and CONFIG.API_KEY ~= "" then
-		return CONFIG.API_KEY
-	end
-	return nil
-end
-
-local function setApiKey(key)
-	plugin:SetSetting("MCP_API_KEY", key)
-	apiKey = key
-	print("[MCP] API key saved")
-end
-
-apiKey = getApiKey()
 
 --------------------------------------------------------------------------------
 -- UI Creation
@@ -858,11 +710,10 @@ ui = createUI({
 	version = VERSION,
 	onReconnect = reconnect,
 	onRestart = restart,
-	onSaveKey = setApiKey,
 	onToggleConnection = function()
 		isEnabled = not isEnabled
 		print("[MCP] Connection toggled, isEnabled=" .. tostring(isEnabled))
-		
+
 		if isEnabled then
 			-- Enabling: Show intermediate "connecting" state by updating store
 			-- Set connected=false to show "Connect" state temporarily
@@ -871,16 +722,14 @@ ui = createUI({
 			ui.setConnectionState(false, "localhost", nil)  -- Trigger store update
 			print("[MCP] Connection enabled, starting discovery...")
 		else
-			-- Disabling: tear down connection immediately  
+			-- Disabling: tear down connection immediately
 			isConnected = false
 			activePort = nil
 			serverUrl = nil
+			serverVersion = nil
 			ui.setConnectionState(false, nil, nil)  -- Trigger store update
 			print("[MCP] Connection disabled")
 		end
-	end,
-	getCurrentKey = function()
-		return apiKey and string.sub(apiKey, 1, 8) .. "..." or "not set"
 	end,
 })
 
@@ -915,10 +764,10 @@ local function discoverServerPort()
 end
 
 local function sendResult(id, success, data, err)
-	if not serverUrl or not apiKey then
+	if not serverUrl then
 		return
 	end
-	
+
 	local payload = {
 		id = id,
 		success = success,
@@ -926,7 +775,7 @@ local function sendResult(id, success, data, err)
 		error = err,
 	}
 	pcall(function()
-		local url = serverUrl .. "/result?key=" .. apiKey
+		local url = serverUrl .. "/result?version=" .. VERSION
 		HttpService:PostAsync(url, HttpService:JSONEncode(payload))
 	end)
 end
@@ -1355,13 +1204,41 @@ function Tools.InsertScriptLines(p)
 end
 
 function Tools.RunConsoleCommand(p)
+	if not p.code or type(p.code) ~= "string" then
+		error("Missing or invalid 'code' parameter")
+	end
+
 	local func, compileErr = loadstring(p.code)
 	if not func then
 		error("Compile error: " .. tostring(compileErr))
 	end
 
 	local logs = {}
-	local env = setmetatable({
+
+	-- Create a sandboxed environment without access to dangerous functions
+	-- NOTE: Using explicit whitelist instead of getfenv() fallback for security
+	local sandboxEnv = {
+		-- Safe globals
+		game = game,
+		workspace = workspace,
+		Workspace = workspace,
+		script = script,
+		-- Constructors
+		Instance = Instance,
+		Vector3 = Vector3,
+		Vector2 = Vector2,
+		Color3 = Color3,
+		CFrame = CFrame,
+		UDim2 = UDim2,
+		UDim = UDim,
+		Enum = Enum,
+		Ray = Ray,
+		Region3 = Region3,
+		BrickColor = BrickColor,
+		NumberRange = NumberRange,
+		NumberSequence = NumberSequence,
+		ColorSequence = ColorSequence,
+		-- Output functions (wrapped to capture logs)
 		print = function(...)
 			local parts = {}
 			for i = 1, select("#", ...) do
@@ -1378,9 +1255,38 @@ function Tools.RunConsoleCommand(p)
 			table.insert(logs, "WARN: " .. table.concat(parts, " "))
 			warn(...)
 		end,
-	}, { __index = getfenv() })
+		error = error,
+		assert = assert,
+		-- Type functions
+		type = type,
+		typeof = typeof,
+		tonumber = tonumber,
+		tostring = tostring,
+		-- Iteration
+		pairs = pairs,
+		ipairs = ipairs,
+		next = next,
+		select = select,
+		unpack = unpack,
+		-- Safe execution
+		pcall = pcall,
+		xpcall = xpcall,
+		-- Safe libraries
+		math = math,
+		string = string,
+		table = table,
+		coroutine = coroutine,
+		-- Restricted os (time functions only)
+		os = { time = os.time, clock = os.clock, date = os.date, difftime = os.difftime },
+		-- Task library for async
+		task = task,
+		wait = wait,
+		delay = delay,
+		spawn = spawn,
+		-- NOTE: debug library intentionally NOT included (security risk)
+	}
 
-	setfenv(func, env)
+	setfenv(func, sandboxEnv)
 
 	local results = { pcall(func) }
 	local success = table.remove(results, 1)
@@ -1793,22 +1699,25 @@ local function connectWebSocket()
 		print("[MCP] Already connecting, skipping...")
 		return false
 	end
-	
+
 	if wsClient then
 		print("[MCP] Closing existing WebSocket...")
 		pcall(function() wsClient:Close() end)
 		wsClient = nil
 		task.wait(0.5)  -- Give time for cleanup
 	end
-	
+
 	isConnecting = true
-	
-	local wsUrl = "ws://localhost:" .. CONFIG.BASE_PORT .. "/ws?key=" .. apiKey
-	print("[MCP] Connecting WebSocket to:", wsUrl)
-	
+
+	local wsUrl = "ws://localhost:" .. CONFIG.BASE_PORT .. "/ws"
+	print("[MCP] Connecting WebSocket to:", wsUrl, "(plugin v" .. VERSION .. ")")
+
 	local success, client = pcall(function()
 		return HttpService:CreateWebStreamClient(Enum.WebStreamClientType.WebSocket, {
 			Url = wsUrl,
+			Headers = {
+				["X-Plugin-Version"] = VERSION,
+			},
 		})
 	end)
 	
@@ -1827,10 +1736,19 @@ local function connectWebSocket()
 		local ok, data = pcall(function()
 			return HttpService:JSONDecode(message)
 		end)
-		
+
 		if ok and data then
 			if data.type == "connected" then
-				print("[MCP] Server confirmed connection, clientId:", data.clientId)
+				print("[MCP] Server confirmed connection, clientId:", data.clientId, "serverVersion:", data.serverVersion)
+				serverVersion = data.serverVersion
+				-- Send version handshake
+				local handshake = HttpService:JSONEncode({
+					type = "handshake",
+					version = VERSION,
+				})
+				pcall(function() wsClient:Send(handshake) end)
+			elseif data.type == "handshake_ok" then
+				print("[MCP] Version handshake successful - server:", data.serverVersion, "plugin:", data.pluginVersion)
 				-- Mark as fully connected now
 				if not isConnected then
 					isConnected = true
@@ -1843,6 +1761,13 @@ local function connectWebSocket()
 							ui.setConnectionState(true, "localhost", CONFIG.BASE_PORT)
 						end)
 					end
+				end
+			elseif data.type == "error" then
+				if data.code == "VERSION_MISMATCH" then
+					warn("[MCP] Version mismatch! Plugin:", VERSION, "Server:", data.serverVersion or "unknown")
+					warn("[MCP] Please update your plugin or server to matching versions.")
+				else
+					warn("[MCP] Server error:", data.message)
 				end
 			elseif data.type == "commands" and data.data then
 				-- Handle array of commands from server
@@ -1919,6 +1844,7 @@ local function disconnectWebSocket()
 		wsClient = nil
 	end
 	isConnected = false
+	serverVersion = nil
 	task.spawn(updateButtonState)
 	if ui then
 		task.spawn(function()
@@ -1956,20 +1882,12 @@ end
 
 -- Connection manager coroutine
 coroutine.wrap(function()
-	print("[MCP] Bridge starting with WebSocket mode...")
-	
+	print("[MCP] Bridge starting with WebSocket mode (v" .. VERSION .. ")...")
+
 	while true do
 		task.wait(0.5)
-		
+
 		if isEnabled then
-			-- Check for API key
-			if not apiKey or apiKey == "" then
-				print("[MCP] API key not set. Use _G.MCP_SetApiKey('your-key') or enter in Settings panel")
-				task.wait(5)
-				apiKey = getApiKey()
-				continue
-			end
-			
 			-- Connect if not already connected
 			if not isConnected and not wsClient then
 				-- First verify server is reachable via HTTP health check
@@ -1977,9 +1895,17 @@ coroutine.wrap(function()
 				local ok, resp = pcall(function()
 					return HttpService:GetAsync(healthUrl, false)
 				end)
-				
+
 				if ok then
-					print("[MCP] Server found, connecting WebSocket...")
+					-- Check server version from health response
+					local healthOk, healthData = pcall(function()
+						return HttpService:JSONDecode(resp)
+					end)
+					if healthOk and healthData and healthData.version then
+						print("[MCP] Server found (v" .. healthData.version .. "), connecting WebSocket...")
+					else
+						print("[MCP] Server found, connecting WebSocket...")
+					end
 					connectWebSocket()
 					task.wait(2)  -- Give WebSocket time to connect
 				else
@@ -2000,14 +1926,7 @@ end)()
 
 updateButtonState()
 
--- Expose setApiKey globally so users can set it from command bar
-_G.MCP_SetApiKey = setApiKey
-_G.MCP_GetApiKey = function()
-	return apiKey and string.sub(apiKey, 1, 8) .. "..." or "not set"
-end
+-- Expose version info globally for debugging
+_G.MCP_Version = VERSION
 
-if apiKey then
-	print("[MCP] Plugin loaded (API key configured)")
-else
-	print("[MCP] Plugin loaded (API key NOT set - run _G.MCP_SetApiKey('your-key') in command bar)")
-end
+print("[MCP] Plugin loaded (v" .. VERSION .. ") - Click the MCP Bridge button in the toolbar to connect")
