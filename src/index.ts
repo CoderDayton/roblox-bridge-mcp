@@ -6,7 +6,7 @@ import { logger } from "./utils/logger";
 
 const server = new FastMCP({
   name: "roblox-bridge-mcp",
-  version: "1.0.0",
+  version: "1.1.0",
 });
 
 // Register all Roblox tools and resources

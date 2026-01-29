@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { FastMCP } from "fastmcp";
 import { bridge } from "../utils/bridge";
 import { config } from "../config";
+import { InvalidParameterError } from "../utils/errors";
 
 /**
  * All supported Roblox Studio API methods
@@ -105,7 +106,7 @@ const METHODS = [
 ] as const;
 
 /**
- * Comprehensive description of all 99 Roblox Studio API methods
+ * Comprehensive description of all 74 Roblox Studio API methods
  * Format: MethodName(param1,param2?,param3?)
  * Optional params marked with ?, arrays marked with [], numeric ranges shown as min-max
  */
@@ -205,6 +206,23 @@ export function registerAllTools(server: FastMCP): void {
      * @returns Stringified JSON result from Roblox Studio
      */
     execute: async ({ method, params }) => {
+      // Validate RunConsoleCommand has required 'code' parameter
+      if (method === "RunConsoleCommand") {
+        if (typeof params.code !== "string" || params.code.trim().length === 0) {
+          throw new InvalidParameterError(
+            "RunConsoleCommand requires a non-empty 'code' parameter",
+            method
+          );
+        }
+        // Limit code length to prevent abuse (64KB max)
+        if (params.code.length > 65536) {
+          throw new InvalidParameterError(
+            `RunConsoleCommand code exceeds maximum length of 65536 characters (got ${params.code.length})`,
+            method
+          );
+        }
+      }
+
       const result = await bridge.execute(method, params, config.retries);
       return typeof result === "string" ? result : JSON.stringify(result, null, 2);
     },

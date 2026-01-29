@@ -34,12 +34,14 @@ class Logger {
 
   debug(message: string, context?: LogContext): void {
     if (!this.shouldLog(LogLevel.DEBUG)) return;
-    console.debug(this.formatMessage("DEBUG", message, context));
+    // Use stderr for all logs to avoid interfering with MCP JSON protocol on stdout
+    console.error(this.formatMessage("DEBUG", message, context));
   }
 
   info(message: string, context?: LogContext): void {
     if (!this.shouldLog(LogLevel.INFO)) return;
-    console.info(this.formatMessage("INFO", message, context));
+    // Use stderr for all logs to avoid interfering with MCP JSON protocol on stdout
+    console.error(this.formatMessage("INFO", message, context));
   }
 
   warn(message: string, context?: LogContext): void {
