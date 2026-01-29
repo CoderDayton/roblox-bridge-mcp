@@ -96,6 +96,9 @@ const METHODS = [
   "SetCameraPosition",
   "SetCameraFocus",
   "GetCameraPosition",
+  "SetCameraType",
+  "ZoomCamera",
+  "GetCameraType",
   // Utilities
   "GetDistance",
   "HighlightObject",
@@ -103,92 +106,100 @@ const METHODS = [
   // History
   "Undo",
   "Redo",
+  // Animation & Character
+  "PlayAnimation",
+  "LoadAnimation",
+  "StopAnimation",
+  "SetCharacterAppearance",
+  "GetCharacter",
+  // GUI
+  "CreateGuiElement",
+  "SetGuiText",
+  "SetGuiSize",
+  "SetGuiPosition",
+  "SetGuiVisible",
+  "DestroyGuiElement",
+  // Networking
+  "FireRemoteEvent",
+  "InvokeRemoteFunction",
+  "CreateRemoteEvent",
+  "CreateRemoteFunction",
+  // DataStore
+  "GetDataStore",
+  "SetDataStoreValue",
+  "GetDataStoreValue",
+  "RemoveDataStoreValue",
+  // Tween
+  "CreateTween",
+  "TweenProperty",
+  // Raycasting
+  "Raycast",
+  "RaycastTo",
+  // Constraints
+  "CreateWeld",
+  "CreateMotor6D",
+  // Particles
+  "CreateParticleEmitter",
+  "EmitParticles",
+  // Materials
+  "ApplyDecal",
+  "ApplyTexture",
+  // Marketplace
+  "InsertAsset",
+  "InsertMesh",
+  // Teams
+  "CreateTeam",
+  "SetPlayerTeam",
+  "GetPlayerTeam",
+  // Leaderstats
+  "CreateLeaderstat",
+  "SetLeaderstatValue",
+  "GetLeaderstatValue",
 ] as const;
 
 /**
- * Comprehensive description of all 74 Roblox Studio API methods
+ * Comprehensive description of all 114 Roblox Studio API methods
  * Format: MethodName(param1,param2?,param3?)
  * Optional params marked with ?, arrays marked with [], numeric ranges shown as min-max
  */
 const DESCRIPTION = `Roblox Studio ops. method + params{}.
-CreateInstance(className,parentPath,name?,properties?)
-DeleteInstance(path)
-CloneInstance(path,parentPath?)
-RenameInstance(path,newName)
-GetFullName(path)
-GetParent(path)
-IsA(path,className)
-GetClassName(path)
-WaitForChild(path,name,timeout?)
-SetProperty(path,property,value)
-GetProperty(path,property)
-GetChildren(path)
-GetDescendants(path)
-FindFirstChild(path,name,recursive?)
-GetService(service)
-MoveTo(path,position[x,y,z])
-SetPosition(path,x,y,z)
-GetPosition(path)
-SetRotation(path,x,y,z)
-GetRotation(path)
-SetSize(path,x,y,z)
-GetSize(path)
-PivotTo(path,cframe[12])
-GetPivot(path)
-SetColor(path,r,g,b)
-SetTransparency(path,value:0-1)
-SetMaterial(path,material)
-SetAnchored(path,anchored)
-SetCanCollide(path,canCollide)
-CreateConstraint(type,attachment0Path,attachment1Path,properties?)
-SetPhysicalProperties(path,density?,friction?,elasticity?)
-GetMass(path)
-CreateScript(name,parentPath,source,type?)
-GetScriptSource(path)
-SetScriptSource(path,source)
-AppendToScript(path,code)
-ReplaceScriptLines(path,startLine,endLine,content)
-InsertScriptLines(path,lineNumber,content)
-RunConsoleCommand(code)
-GetSelection()
-SetSelection(paths[])
-ClearSelection()
-AddToSelection(paths[])
-GroupSelection(name)
-UngroupModel(path)
-SetTimeOfDay(time)
-SetBrightness(brightness)
-SetAtmosphereDensity(density)
-CreateLight(parentPath,type,brightness?,color?)
-SetAttribute(path,name,value)
-GetAttribute(path,name)
-GetAttributes(path)
-AddTag(path,tag)
-RemoveTag(path,tag)
-GetTags(path)
-HasTag(path,tag)
-GetPlayers()
-GetPlayerPosition(username)
-TeleportPlayer(username,position[x,y,z])
-KickPlayer(username,reason?)
-SavePlace()
-GetPlaceInfo()
-PlaySound(soundId,parentPath?,volume?)
-StopSound(path)
-FillTerrain(material,minX,minY,minZ,maxX,maxY,maxZ)
-ClearTerrain()
-SetCameraPosition(x,y,z)
-SetCameraFocus(path)
-GetCameraPosition()
-GetDistance(path1,path2)
-HighlightObject(path,color?,duration?)
-Chat(message,color?)
-Undo()
-Redo()`;
+CreateInstance(className,parentPath,name?,properties?) DeleteInstance(path) CloneInstance(path,parentPath?) RenameInstance(path,newName)
+GetFullName(path) GetParent(path) IsA(path,className) GetClassName(path) WaitForChild(path,name,timeout?)
+SetProperty(path,property,value) GetProperty(path,property)
+GetChildren(path) GetDescendants(path) FindFirstChild(path,name,recursive?) GetService(service)
+MoveTo(path,position[3]) SetPosition(path,x,y,z) GetPosition(path) SetRotation(path,x,y,z) GetRotation(path)
+SetSize(path,x,y,z) GetSize(path) PivotTo(path,cframe[12]) GetPivot(path)
+SetColor(path,r,g,b) SetTransparency(path,value:0-1) SetMaterial(path,material)
+SetAnchored(path,anchored) SetCanCollide(path,canCollide) CreateConstraint(type,attachment0Path,attachment1Path,properties?)
+SetPhysicalProperties(path,density?,friction?,elasticity?) GetMass(path)
+CreateScript(name,parentPath,source,type?) GetScriptSource(path) SetScriptSource(path,source)
+AppendToScript(path,code) ReplaceScriptLines(path,startLine,endLine,content) InsertScriptLines(path,lineNumber,content) RunConsoleCommand(code)
+GetSelection() SetSelection(paths[]) ClearSelection() AddToSelection(paths[]) GroupSelection(name) UngroupModel(path)
+SetTimeOfDay(time) SetBrightness(brightness) SetAtmosphereDensity(density) CreateLight(parentPath,type,brightness?,color?)
+SetAttribute(path,name,value) GetAttribute(path,name) GetAttributes(path) AddTag(path,tag) RemoveTag(path,tag) GetTags(path) HasTag(path,tag)
+GetPlayers() GetPlayerPosition(username) TeleportPlayer(username,position[3]) KickPlayer(username,reason?)
+SavePlace() GetPlaceInfo() PlaySound(soundId,parentPath?,volume?) StopSound(path)
+FillTerrain(material,minX,minY,minZ,maxX,maxY,maxZ) ClearTerrain()
+SetCameraPosition(x,y,z) SetCameraFocus(path) GetCameraPosition() SetCameraType(cameraType) ZoomCamera(amount) GetCameraType()
+GetDistance(path1,path2) HighlightObject(path,color?,duration?) Chat(message) Undo() Redo()
+PlayAnimation(humanoidPath,animationId) LoadAnimation(humanoidPath,animationId) StopAnimation(humanoidPath)
+SetCharacterAppearance(playerName,shirtId?,pantsId?) GetCharacter(playerName)
+CreateGuiElement(className,parentPath,name?,properties?) SetGuiText(path,text) SetGuiSize(path,scaleX,scaleY,offsetX?,offsetY?)
+SetGuiPosition(path,scaleX,scaleY,offsetX?,offsetY?) SetGuiVisible(path,visible) DestroyGuiElement(path)
+FireRemoteEvent(path,args[]?) InvokeRemoteFunction(path,args[]?) CreateRemoteEvent(name,parentPath?) CreateRemoteFunction(name,parentPath?)
+GetDataStore(name) SetDataStoreValue(storeName,key,value) GetDataStoreValue(storeName,key) RemoveDataStoreValue(storeName,key)
+CreateTween(path,properties,duration?,easingStyle?,easingDirection?) TweenProperty(path,property,targetValue,duration?)
+Raycast(origin[3],direction[3],filterDescendants[]?,filterType?) RaycastTo(originPath,targetPath,filterDescendants[]?)
+CreateWeld(part0Path,part1Path) CreateMotor6D(part0Path,part1Path,name?)
+CreateParticleEmitter(parentPath,properties?) EmitParticles(path,count?)
+ApplyDecal(parentPath,textureId,face?) ApplyTexture(parentPath,textureId,face?)
+InsertAsset(assetId,parentPath?) InsertMesh(parentPath,meshId,textureId?)
+CreateTeam(name,teamColor?) SetPlayerTeam(playerName,teamName) GetPlayerTeam(playerName)
+CreateLeaderstat(playerName,statName,valueType?,initialValue?) SetLeaderstatValue(playerName,statName,value) GetLeaderstatValue(playerName,statName)`;
 
 /**
  * Register all Roblox Studio tools with the FastMCP server
- * Registers a single 'roblox' tool that dispatches to 99 different methods
+ * Registers a single 'roblox' tool that dispatches to 114 different methods
  * @param server - FastMCP server instance to register tools with
  */
 export function registerAllTools(server: FastMCP): void {
