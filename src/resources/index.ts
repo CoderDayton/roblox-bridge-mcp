@@ -12,7 +12,7 @@ const METHODS = {
 
   // Instance discovery & info
   GetFullName: "Get the full path of an instance (path)",
-  GetParent: "Get parent of an instance (path)",
+  GetParent: "Get the parent of an instance (path)",
   IsA: "Check if instance is of a class (path, className)",
   GetClassName: "Get the class name of an instance (path)",
   WaitForChild: "Wait for a child to exist (path, name, timeout?)",
@@ -112,8 +112,74 @@ const METHODS = {
   Chat: "Send chat message (message)",
 
   // History
-  Undo: "Undo the last action in Studio",
-  Redo: "Redo the last undone action in Studio",
+  Undo: "Undo last action in Studio",
+  Redo: "Redo last undone action in Studio",
+
+  // Animation & Character
+  PlayAnimation: "Play an animation on humanoid (path, animationId)",
+  LoadAnimation: "Load an animation track (path, animationId)",
+  StopAnimation: "Stop playing animation (path)",
+  SetCharacterAppearance: "Set character appearance asset (playerPath, assetId)",
+  GetCharacter: "Get player's character instance (playerName)",
+
+  // GUI
+  CreateGuiElement: "Create a GUI element (className, parentPath, name?, properties?)",
+  SetGuiText: "Set text property of GUI element (path, text)",
+  SetGuiSize: "Set size of GUI element (path, size[2])",
+  SetGuiPosition: "Set position of GUI element (path, position[2])",
+  SetGuiVisible: "Set visible property of GUI element (path, visible)",
+  DestroyGuiElement: "Destroy a GUI element (path)",
+
+  // Networking
+  FireRemoteEvent: "Fire a remote event (path, args[])",
+  InvokeRemoteFunction: "Invoke a remote function (path, args[])",
+  CreateRemoteEvent: "Create a remote event (name, parentPath?)",
+  CreateRemoteFunction: "Create a remote function (name, parentPath?)",
+
+  // DataStore
+  GetDataStore: "Get a data store instance (name)",
+  SetDataStoreValue: "Set value in data store (storeName, key, value)",
+  GetDataStoreValue: "Get value from data store (storeName, key)",
+  RemoveDataStoreValue: "Remove value from data store (storeName, key)",
+
+  // Tween
+  CreateTween: "Create tween animation (path, targetProperties, duration?)",
+  TweenProperty: "Tween a single property (path, property, endValue, duration?)",
+
+  // Raycasting
+  Raycast: "Cast a ray from point (origin[3], direction[3], params?)",
+  RaycastTo: "Raycast from one object to another (path, targetPath, params?)",
+
+  // Constraints
+  CreateWeld: "Create weld constraint (part0Path, part1Path, properties?)",
+  CreateMotor6D: "Create Motor6D constraint (part0Path, part1Path, properties?)",
+
+  // Particles
+  CreateParticleEmitter: "Create particle emitter (path, properties?)",
+  EmitParticles: "Emit particles from emitter (path, count?)",
+
+  // Materials
+  ApplyDecal: "Apply decal texture (path, texture, parentPath?)",
+  ApplyTexture: "Apply texture (path, texture, parentPath?)",
+
+  // Camera
+  SetCameraType: "Set camera type (cameraType)",
+  ZoomCamera: "Zoom camera by amount (amount)",
+  GetCameraType: "Get current camera type ()",
+
+  // Marketplace
+  InsertAsset: "Insert asset from marketplace (assetId, parentPath?)",
+  InsertMesh: "Insert mesh part (meshId, parentPath?)",
+
+  // Teams
+  CreateTeam: "Create a team (name, color?)",
+  SetPlayerTeam: "Set player's team (playerName, teamName)",
+  GetPlayerTeam: "Get player's team (playerName)",
+
+  // Leaderstats
+  CreateLeaderstat: "Create a leaderstat value (name, parentPath?)",
+  SetLeaderstatValue: "Set leaderstat value (path, value)",
+  GetLeaderstatValue: "Get leaderstat value (path)",
 } as const;
 
 /** Register all MCP resources */
@@ -227,9 +293,51 @@ export function registerResources(server: FastMCP): void {
           Place: ["SavePlace", "GetPlaceInfo"],
           Audio: ["PlaySound", "StopSound"],
           Terrain: ["FillTerrain", "ClearTerrain"],
-          Camera: ["SetCameraPosition", "SetCameraFocus", "GetCameraPosition"],
+          Camera: [
+            "SetCameraPosition",
+            "SetCameraFocus",
+            "GetCameraPosition",
+            "SetCameraType",
+            "ZoomCamera",
+            "GetCameraType",
+          ],
           Utilities: ["GetDistance", "HighlightObject", "Chat"],
           History: ["Undo", "Redo"],
+          "Animation & Character": [
+            "PlayAnimation",
+            "LoadAnimation",
+            "StopAnimation",
+            "SetCharacterAppearance",
+            "GetCharacter",
+          ],
+          GUI: [
+            "CreateGuiElement",
+            "SetGuiText",
+            "SetGuiSize",
+            "SetGuiPosition",
+            "SetGuiVisible",
+            "DestroyGuiElement",
+          ],
+          Networking: [
+            "FireRemoteEvent",
+            "InvokeRemoteFunction",
+            "CreateRemoteEvent",
+            "CreateRemoteFunction",
+          ],
+          DataStore: [
+            "GetDataStore",
+            "SetDataStoreValue",
+            "GetDataStoreValue",
+            "RemoveDataStoreValue",
+          ],
+          Tween: ["CreateTween", "TweenProperty"],
+          Raycasting: ["Raycast", "RaycastTo"],
+          Constraints: ["CreateWeld", "CreateMotor6D"],
+          Particles: ["CreateParticleEmitter", "EmitParticles"],
+          Materials: ["ApplyDecal", "ApplyTexture"],
+          Marketplace: ["InsertAsset", "InsertMesh"],
+          Teams: ["CreateTeam", "SetPlayerTeam", "GetPlayerTeam"],
+          Leaderstats: ["CreateLeaderstat", "SetLeaderstatValue", "GetLeaderstatValue"],
         },
       };
 
