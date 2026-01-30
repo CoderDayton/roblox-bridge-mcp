@@ -448,6 +448,13 @@ function tryStartServer(port: number): ReturnType<typeof Bun.serve> | null {
 /**
  * Start the WebSocket bridge server
  */
+/** @internal Exported for testing */
+export {
+  handleMessage as _handleMessage,
+  handleRequest as _handleRequest,
+  tryStartServer as _tryStartServer,
+};
+
 export function startBridgeServer(): void {
   const port = config.bridgePort;
 

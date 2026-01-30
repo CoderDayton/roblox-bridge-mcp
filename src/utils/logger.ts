@@ -90,3 +90,6 @@ export const logger = {
   tools: createLogger("Tools"),
   server: createLogger("Server"),
 };
+
+/** @internal Exported for testing */
+export { Logger as _Logger };
