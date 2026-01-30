@@ -35,7 +35,6 @@ interface CommandMetric {
 
 /**
  * Aggregated metrics for the bridge
- * Includes success rates, average duration, and per-method statistics
  */
 export interface BridgeMetrics {
   totalCommands: number;
@@ -47,7 +46,7 @@ export interface BridgeMetrics {
   methodStats: Record<string, { count: number; avgDuration: number; failures: number }>;
 }
 
-/** Validation schemas for bridge methods */
+/** Validation schemas */
 const executeSchema = z.object({
   method: z.string().min(1, "Method name cannot be empty"),
   params: z.record(z.unknown()),
@@ -65,20 +64,18 @@ const resultSchema = z.object({
 interface WSClientData {
   id: string;
   connectedAt: number;
+  version?: string;
+  ready: boolean;
 }
 
-/** Pending long-poll request */
-interface PendingPoll {
-  resolve: (commands: RobloxCommand[]) => void;
-  timeout: ReturnType<typeof setTimeout>;
-}
-
+/**
+ * WebSocket-only bridge for Roblox Studio communication
+ */
 class RobloxBridge extends EventEmitter {
   private commandQueue: RobloxCommand[] = [];
   private pendingResponses = new Map<string, (result: RobloxResult) => void>();
-  private lastPollTime = 0;
 
-  // Metrics tracking
+  // Metrics
   private commandHistory: CommandMetric[] = [];
   private readonly maxHistorySize = 100;
   private commandStartTimes = new Map<string, number>();
@@ -86,42 +83,36 @@ class RobloxBridge extends EventEmitter {
   // WebSocket clients
   private wsClients = new Set<ServerWebSocket<WSClientData>>();
 
-  // Long-polling support
-  private pendingPolls: PendingPoll[] = [];
-  private readonly longPollTimeout = 25_000; // 25 seconds (less than typical 30s HTTP timeout)
-
   /**
-   * Check if the bridge appears to be connected to the Roblox Studio plugin
-   * @returns True if HTTP polling is active or WebSocket clients are connected
+   * Check if any WebSocket clients are connected and ready
    */
   isConnected(): boolean {
-    return this.isHttpConnected() || this.wsClients.size > 0;
+    for (const client of this.wsClients) {
+      if (client.data.ready) return true;
+    }
+    return false;
   }
 
   /**
-   * Check if HTTP polling connection is active (polled within last 10 seconds)
-   * @private
+   * Get number of connected WebSocket clients
    */
-  private isHttpConnected(): boolean {
-    return Date.now() - this.lastPollTime < 10_000;
+  getClientCount(): number {
+    return this.wsClients.size;
   }
 
   /**
-   * Get detailed connection information
-   * @returns Object with HTTP and WebSocket connection states
+   * Get number of ready (handshake complete) clients
    */
-  getConnectionInfo(): { httpConnected: boolean; wsClients: number; lastPollTime: number } {
-    return {
-      httpConnected: this.isHttpConnected(),
-      wsClients: this.wsClients.size,
-      lastPollTime: this.lastPollTime,
-    };
+  getReadyClientCount(): number {
+    let count = 0;
+    for (const client of this.wsClients) {
+      if (client.data.ready) count++;
+    }
+    return count;
   }
 
   /**
    * Get aggregated metrics about command execution
-   * Includes success rates, average duration, recent commands, and per-method statistics
-   * @returns BridgeMetrics object with comprehensive statistics
    */
   getMetrics(): BridgeMetrics {
     const total = this.commandHistory.length;
@@ -140,45 +131,30 @@ class RobloxBridge extends EventEmitter {
     };
   }
 
-  /**
-   * Calculate per-method statistics from command history
-   * @private
-   * @returns Record mapping method names to their statistics
-   */
   private calculateMethodStats(): Record<
     string,
     { count: number; avgDuration: number; failures: number }
   > {
-    const methodStats = new Map<string, { count: number; avgDuration: number; failures: number }>();
+    const stats = new Map<string, { count: number; avgDuration: number; failures: number }>();
     for (const cmd of this.commandHistory) {
-      const existing = methodStats.get(cmd.method);
-      const stats = existing ?? { count: 0, avgDuration: 0, failures: 0 };
-      stats.avgDuration = (stats.avgDuration * stats.count + cmd.duration) / (stats.count + 1);
-      stats.count++;
-      if (!cmd.success) {
-        stats.failures++;
-      }
-      methodStats.set(cmd.method, stats);
+      const existing = stats.get(cmd.method) ?? { count: 0, avgDuration: 0, failures: 0 };
+      existing.avgDuration =
+        (existing.avgDuration * existing.count + cmd.duration) / (existing.count + 1);
+      existing.count++;
+      if (!cmd.success) existing.failures++;
+      stats.set(cmd.method, existing);
     }
-    return Object.fromEntries(methodStats);
+    return Object.fromEntries(stats);
   }
 
   /**
-   * Execute a Roblox command with automatic retry logic
-   * @param method - Roblox API method name (e.g., 'CreateInstance', 'SetProperty')
-   * @param params - Method parameters as key-value pairs
-   * @param retries - Number of retry attempts on timeout (default: 1)
-   * @returns Promise resolving to the command result
-   * @throws {RobloxTimeoutError} If command times out after all retries
-   * @throws {RobloxExecutionError} If Roblox returns an error
-   * @throws {z.ZodError} If parameters fail validation
+   * Execute a Roblox command with retry logic
    */
   async execute<T = unknown>(
     method: string,
     params: Record<string, unknown>,
     retries = 1
   ): Promise<T> {
-    // Validate input parameters
     const validated = executeSchema.parse({ method, params, retries });
     method = validated.method;
     params = validated.params;
@@ -198,7 +174,6 @@ class RobloxBridge extends EventEmitter {
           logger.bridge.warn(`Timeout on attempt ${attempt + 1}/${retries + 1}, retrying...`, {
             method,
             attempt: attempt + 1,
-            maxRetries: retries + 1,
           });
           await new Promise((resolve) => setTimeout(resolve, 1000));
           continue;
@@ -209,22 +184,12 @@ class RobloxBridge extends EventEmitter {
       }
     }
 
-    // This should only be reached if retries is somehow negative (validated to be >= 0)
-    // or if the loop completes without returning or throwing (shouldn't happen)
     throw (
       lastError ??
       new RobloxTimeoutError(`Failed after ${retries + 1} attempts`, method, retries + 1)
     );
   }
 
-  /**
-   * Execute a command once without retry logic (internal helper)
-   * @private
-   * @param method - Roblox API method name
-   * @param params - Method parameters
-   * @param attempt - Current attempt number (for logging)
-   * @returns Promise resolving to the command result
-   */
   private async executeOnce<T = unknown>(
     method: string,
     params: Record<string, unknown>,
@@ -235,213 +200,68 @@ class RobloxBridge extends EventEmitter {
 
     this.commandQueue.push(command);
     this.commandStartTimes.set(id, Date.now());
-    this.notifyNewCommand();
+    this.sendCommands();
 
     return new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        this.handleTimeout(id, method, attempt, reject);
+        this.pendingResponses.delete(id);
+        this.recordMetric(id, method, false, "Timeout");
+        const msg = this.isConnected()
+          ? `Command '${method}' timed out after ${config.timeout}ms (attempt ${attempt})`
+          : `Command '${method}' timed out. No Roblox Studio plugin connected.`;
+        reject(new RobloxTimeoutError(msg, method, attempt));
       }, config.timeout);
 
       this.pendingResponses.set(id, (result) => {
-        this.handleResponse(id, method, params, timeout, result, resolve, reject);
+        clearTimeout(timeout);
+        this.recordMetric(id, method, result.success, result.error);
+        if (result.success) {
+          resolve(result.data as T);
+        } else {
+          reject(
+            new RobloxExecutionError(
+              `Roblox error in '${method}': ${result.error ?? "Unknown error"}`,
+              method,
+              params
+            )
+          );
+        }
       });
     });
   }
 
   /**
-   * Handle command timeout by cleaning up and rejecting the promise
-   * @private
+   * Send queued commands to all ready WebSocket clients
    */
-  private handleTimeout(
-    id: string,
-    method: string,
-    attempt: number,
-    reject: (error: Error) => void
-  ): void {
-    this.pendingResponses.delete(id);
-    this.recordMetric(id, method, false, "Timeout");
-    const errorMsg = this.isConnected()
-      ? `Command '${method}' timed out after ${config.timeout}ms (attempt ${attempt})`
-      : `Command '${method}' timed out. Roblox Studio plugin is not connected. Please ensure the plugin is installed and Studio is running.`;
-    reject(new RobloxTimeoutError(errorMsg, method, attempt));
-  }
+  private sendCommands(): void {
+    if (this.commandQueue.length === 0) return;
 
-  /**
-   * Handle command response from Roblox plugin
-   * @private
-   */
-  private handleResponse<T>(
-    id: string,
-    method: string,
-    params: Record<string, unknown>,
-    timeout: ReturnType<typeof setTimeout>,
-    result: RobloxResult,
-    resolve: (value: T) => void,
-    reject: (error: Error) => void
-  ): void {
-    clearTimeout(timeout);
-    this.recordMetric(id, method, result.success, result.error);
-    if (result.success) {
-      resolve(result.data as T);
-    } else {
-      const errorMsg = `Roblox error in '${method}': ${result.error ?? "Unknown error"}`;
-      reject(new RobloxExecutionError(errorMsg, method, params));
-    }
-  }
-
-  /**
-   * Notify all waiting clients (long-polls and WebSockets) about new commands
-   * Both connection types are notified when commands are available, with the first
-   * responder getting the commands (queue is drained on first notification)
-   * @private
-   */
-  private notifyNewCommand(): void {
-    if (this.commandQueue.length === 0) {
-      return;
-    }
-
-    // Notify both long-poll and WebSocket clients
-    // The first to drain the queue wins; others get empty arrays
-    const hasLongPolls = this.pendingPolls.length > 0;
-    const hasWebSockets = this.wsClients.size > 0;
-
-    if (hasLongPolls) {
-      this.notifyLongPolls();
-    }
-
-    // Also notify WebSocket clients (they'll check if queue is empty)
-    if (hasWebSockets) {
-      this.notifyWebSocketClients();
-    }
-  }
-
-  /**
-   * Notify all pending long-poll requests with queued commands
-   * @private
-   */
-  private notifyLongPolls(): void {
-    const commands = this.drainCommandQueue();
-    for (const poll of this.pendingPolls) {
-      clearTimeout(poll.timeout);
-      poll.resolve(commands);
-    }
-    this.pendingPolls = [];
-  }
-
-  /**
-   * Notify all WebSocket clients with queued commands
-   * @private
-   */
-  private notifyWebSocketClients(): void {
-    const commands = this.drainCommandQueue();
-    if (commands.length === 0) {
-      return; // Queue already drained by long-poll
-    }
-    const message = JSON.stringify({ type: "commands", data: commands });
-    for (const client of this.wsClients) {
-      client.send(message);
-    }
-  }
-
-  /**
-   * Drain and return all commands from the queue
-   * @private
-   * @returns Array of pending commands (queue is cleared)
-   */
-  private drainCommandQueue(): RobloxCommand[] {
     const commands = [...this.commandQueue];
     this.commandQueue = [];
-    return commands;
+
+    const message = JSON.stringify({ type: "commands", data: commands });
+    for (const client of this.wsClients) {
+      if (client.data.ready) {
+        client.send(message);
+      }
+    }
   }
 
-  /**
-   * Record metrics for a completed command execution
-   * @private
-   * @param id - Command ID
-   * @param method - Roblox API method name
-   * @param success - Whether the command succeeded
-   * @param error - Optional error message
-   */
   private recordMetric(id: string, method: string, success: boolean, error?: string): void {
     const startTime = this.commandStartTimes.get(id);
     const duration = startTime ? Date.now() - startTime : 0;
     this.commandStartTimes.delete(id);
 
-    this.commandHistory.push({
-      method,
-      timestamp: Date.now(),
-      duration,
-      success,
-      error,
-    });
-
+    this.commandHistory.push({ method, timestamp: Date.now(), duration, success, error });
     if (this.commandHistory.length > this.maxHistorySize) {
       this.commandHistory.shift();
     }
   }
 
   /**
-   * Get pending commands immediately without blocking (legacy polling)
-   * @returns Array of pending commands (queue is drained)
-   * @deprecated Use longPoll() for better efficiency
-   */
-  getPendingCommands(): RobloxCommand[] {
-    this.lastPollTime = Date.now();
-    return this.drainCommandQueue();
-  }
-
-  /**
-   * Long-poll for commands (blocks until commands arrive or timeout)
-   * More efficient than getPendingCommands() as it eliminates unnecessary polling
-   * @returns Promise resolving to array of commands (empty if timeout)
-   */
-  async longPoll(): Promise<RobloxCommand[]> {
-    this.lastPollTime = Date.now();
-
-    if (this.commandQueue.length > 0) {
-      return this.drainCommandQueue();
-    }
-
-    return new Promise<RobloxCommand[]>((resolve) => {
-      let pollEntry: PendingPoll | null = null;
-
-      const cleanup = (): void => {
-        if (pollEntry) {
-          clearTimeout(pollEntry.timeout);
-          this.removePendingPoll(resolve);
-          pollEntry = null;
-        }
-      };
-
-      const timeout = setTimeout(() => {
-        cleanup();
-        resolve([]);
-      }, this.longPollTimeout);
-
-      pollEntry = { resolve, timeout };
-      this.pendingPolls.push(pollEntry);
-    });
-  }
-
-  /**
-   * Remove a specific long-poll request from pending list
-   * @private
-   */
-  private removePendingPoll(resolve: (commands: RobloxCommand[]) => void): void {
-    const idx = this.pendingPolls.findIndex((p) => p.resolve === resolve);
-    if (idx !== -1) {
-      this.pendingPolls.splice(idx, 1);
-    }
-  }
-
-  /**
-   * Handle result received from Roblox plugin
-   * Resolves the corresponding pending promise
-   * @param result - Command execution result from plugin
-   * @throws {z.ZodError} If result fails validation
+   * Handle result from plugin
    */
   handleResult(result: RobloxResult): void {
-    // Validate result structure
     resultSchema.parse(result);
     const resolver = this.pendingResponses.get(result.id);
     if (resolver) {
@@ -451,217 +271,79 @@ class RobloxBridge extends EventEmitter {
   }
 
   /**
-   * Register a new WebSocket client connection
-   * @param ws - WebSocket connection to register
-   * @throws {Error} If ws is null or undefined
+   * Register WebSocket client
    */
-  addWebSocketClient(ws: ServerWebSocket<WSClientData> | null | undefined): void {
-    if (!ws) {
-      throw new Error("WebSocket client cannot be null or undefined");
-    }
+  addClient(ws: ServerWebSocket<WSClientData>): void {
     this.wsClients.add(ws);
     logger.bridge.info("WebSocket client connected", { clientId: ws.data.id });
   }
 
   /**
-   * Unregister a WebSocket client connection
-   * @param ws - WebSocket connection to remove
-   * @throws {Error} If ws is null or undefined
+   * Mark client as ready after successful handshake
    */
-  removeWebSocketClient(ws: ServerWebSocket<WSClientData> | null | undefined): void {
-    if (!ws) {
-      throw new Error("WebSocket client cannot be null or undefined");
+  markClientReady(ws: ServerWebSocket<WSClientData>, version: string): void {
+    ws.data.ready = true;
+    ws.data.version = version;
+    logger.bridge.info("WebSocket client ready", { clientId: ws.data.id, version });
+
+    // Send any queued commands immediately
+    if (this.commandQueue.length > 0) {
+      this.sendCommands();
     }
+  }
+
+  /**
+   * Remove WebSocket client
+   */
+  removeClient(ws: ServerWebSocket<WSClientData>): void {
     this.wsClients.delete(ws);
     logger.bridge.info("WebSocket client disconnected", { clientId: ws.data.id });
   }
 
-  /**
-   * Get the number of commands awaiting responses from Roblox
-   * @returns Count of pending responses
-   */
   get pendingCount(): number {
     return this.pendingResponses.size;
   }
 
-  /**
-   * Reset bridge state for testing (clears all queues and connections)
-   * @private
-   */
   resetForTesting(): void {
     this.commandQueue = [];
     this.pendingResponses.clear();
     this.wsClients.clear();
-    this.pendingPolls = [];
     this.commandHistory = [];
     this.commandStartTimes.clear();
   }
 }
 
-/**
- * Singleton bridge instance for communication with Roblox Studio plugin
- */
 export const bridge = new RobloxBridge();
 
-/** Track the actual port the bridge server is running on */
 let activeBridgePort: number | null = null;
 
-/**
- * Get the active bridge server port
- * @returns Port number if server is running, null if startup failed
- */
 export function getActiveBridgePort(): number | null {
   return activeBridgePort;
 }
 
 /**
- * Generate health status response for /health endpoint
- * @param port - Bridge server port
- * @returns Health status object
+ * Handle WebSocket message from plugin
  */
-function getHealthStatus(port: number): {
-  status: string;
-  service: string;
-  version: string;
-  port: number;
-  connected: boolean;
-  connections: { http: boolean; websocket: number };
-  uptime: number;
-} {
-  const connInfo = bridge.getConnectionInfo();
-  return {
-    status: "ok",
-    service: "roblox-bridge-mcp",
-    version: config.version,
-    port,
-    connected: bridge.isConnected(),
-    connections: {
-      http: connInfo.httpConnected,
-      websocket: connInfo.wsClients,
-    },
-    uptime: process.uptime(),
-  };
-}
-
-/**
- * Extract plugin version from request headers or query parameters
- * @param req - HTTP request
- * @param url - Parsed URL
- * @returns Version string if present, null otherwise
- */
-function getPluginVersion(req: Request, url: URL): string | null {
-  const versionHeader = req.headers.get("X-Plugin-Version");
-  const versionParam = url.searchParams.get("version");
-  return versionHeader ?? versionParam;
-}
-
-/**
- * Validate plugin version compatibility
- * @param pluginVersion - Version from plugin
- * @returns Error response if incompatible, null if compatible
- */
-function validateVersion(pluginVersion: string | null): Response | null {
-  if (!pluginVersion) {
-    return Response.json(
-      {
-        error: "Version Required",
-        message: "Plugin version header (X-Plugin-Version) or query param (version) is required",
-        serverVersion: config.version,
-      },
-      { status: 400 }
-    );
-  }
-
-  if (!isVersionCompatible(pluginVersion)) {
-    return Response.json(
-      {
-        error: "Version Mismatch",
-        message: `Plugin version ${pluginVersion} is not compatible with server version ${config.version}`,
-        serverVersion: config.version,
-        pluginVersion,
-      },
-      { status: 400 }
-    );
-  }
-
-  return null;
-}
-
-/**
- * Handle WebSocket upgrade request
- * @param req - HTTP upgrade request
- * @param server - ReturnType<typeof Bun.serve> - Bun server instance with upgrade capability
- * @returns Undefined if upgrade successful, error response otherwise
- */
-function handleWebSocketUpgrade(
-  req: Request,
-  server: ReturnType<typeof Bun.serve<WSClientData>>
-): Response | undefined {
-  const clientId = crypto.randomUUID().slice(0, 8);
-  const upgraded = server.upgrade(req, {
-    data: { id: clientId, connectedAt: Date.now() },
-  });
-  return upgraded ? undefined : new Response("WebSocket upgrade failed", { status: 400 });
-}
-
-/**
- * Handle command polling request (both long-poll and immediate)
- * @param url - Request URL with query parameters
- * @returns Response promise with pending commands
- */
-function handlePollRequest(url: URL): Promise<Response> | Response {
-  const useLongPoll = url.searchParams.get("long") === "1";
-
-  if (useLongPoll) {
-    return bridge.longPoll().then((commands) => Response.json(commands));
-  }
-
-  const commands = bridge.getPendingCommands();
-  return Response.json(commands);
-}
-
-/**
- * Handle command result submission from plugin
- * @param req - HTTP request with result in body
- * @returns Success response promise
- */
-async function handleResultPost(req: Request): Promise<Response> {
-  try {
-    const result = (await req.json()) as unknown;
-    // Validation is done inside handleResult via Zod schema
-    bridge.handleResult(result as RobloxResult);
-    return Response.json({ status: "ok" });
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : "Invalid request";
-    logger.bridge.error("Failed to process result", error instanceof Error ? error : undefined);
-    return Response.json({ error: "Bad Request", message: errorMsg }, { status: 400 });
-  }
-}
-
-/**
- * Handle incoming WebSocket message from plugin
- * @param ws - WebSocket connection
- * @param message - Message data (JSON string or buffer)
- */
-function handleWebSocketMessage(ws: ServerWebSocket<WSClientData>, message: string | Buffer): void {
+function handleMessage(ws: ServerWebSocket<WSClientData>, message: string | Buffer): void {
   try {
     const data = JSON.parse(message.toString());
 
-    // Handle version handshake from plugin
+    // Handshake - version check
     if (data.type === "handshake" && data.version) {
       if (!isVersionCompatible(data.version)) {
         ws.send(
           JSON.stringify({
             type: "error",
             code: "VERSION_MISMATCH",
-            message: `Plugin version ${data.version} is not compatible with server version ${config.version}`,
+            message: `Plugin version ${data.version} incompatible with server ${config.version}`,
             serverVersion: config.version,
           })
         );
         ws.close(1008, "Version mismatch");
         return;
       }
-      // Version OK - send confirmation
+
+      bridge.markClientReady(ws, data.version);
       ws.send(
         JSON.stringify({
           type: "handshake_ok",
@@ -672,9 +354,15 @@ function handleWebSocketMessage(ws: ServerWebSocket<WSClientData>, message: stri
       return;
     }
 
+    // Result from command execution
     if (data.type === "result" && data.data) {
       bridge.handleResult(data.data as RobloxResult);
       ws.send(JSON.stringify({ type: "ack", id: data.data.id }));
+    }
+
+    // Ping/pong for keepalive
+    if (data.type === "ping") {
+      ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
     }
   } catch {
     ws.send(JSON.stringify({ type: "error", message: "Invalid JSON" }));
@@ -682,61 +370,56 @@ function handleWebSocketMessage(ws: ServerWebSocket<WSClientData>, message: stri
 }
 
 /**
- * Route incoming HTTP requests to appropriate handlers
- * @param req - HTTP request
- * @param server - Bun server instance
- * @param port - Bridge server port
- * @returns HTTP response or undefined for WebSocket upgrades
+ * Handle incoming request - WebSocket upgrade only
  */
 function handleRequest(
   req: Request,
   server: ReturnType<typeof Bun.serve<WSClientData>>,
   port: number
-): Response | Promise<Response> | undefined {
+): Response | undefined {
   const url = new URL(req.url);
 
-  // Health endpoint - no version check required (used for discovery)
-  if (req.method === "GET" && url.pathname === "/health") {
-    return Response.json(getHealthStatus(port));
+  // WebSocket upgrade
+  if (url.pathname === "/ws" || url.pathname === "/") {
+    const clientId = crypto.randomUUID().slice(0, 8);
+    const upgraded = server.upgrade(req, {
+      data: { id: clientId, connectedAt: Date.now(), ready: false },
+    });
+    if (!upgraded) {
+      return new Response("WebSocket upgrade failed", { status: 400 });
+    }
+    return undefined;
   }
 
-  // WebSocket upgrade - version checked after connection via message
-  if (url.pathname === "/ws") {
-    return handleWebSocketUpgrade(req, server);
+  // Status endpoint for debugging (optional, lightweight)
+  if (req.method === "GET" && url.pathname === "/status") {
+    return Response.json({
+      service: "roblox-bridge-mcp",
+      version: config.version,
+      port,
+      clients: bridge.getClientCount(),
+      ready: bridge.getReadyClientCount(),
+      connected: bridge.isConnected(),
+      uptime: process.uptime(),
+    });
   }
 
-  // All other endpoints require version validation
-  const pluginVersion = getPluginVersion(req, url);
-  const versionError = validateVersion(pluginVersion);
-  if (versionError) {
-    return versionError;
-  }
-
-  if (req.method === "GET" && url.pathname === "/poll") {
-    return handlePollRequest(url);
-  }
-
-  if (req.method === "POST" && url.pathname === "/result") {
-    return handleResultPost(req);
-  }
-
-  return new Response("Not Found", { status: 404 });
+  return new Response("Use WebSocket connection", { status: 426 });
 }
 
 /**
- * Try to start server on a specific port with WebSocket support
- * @returns Server instance if successful, null if port is in use
+ * Start WebSocket-only bridge server
  */
 function tryStartServer(port: number): ReturnType<typeof Bun.serve> | null {
   try {
-    const server = Bun.serve<WSClientData>({
+    return Bun.serve<WSClientData>({
       port,
       fetch(req, server) {
         return handleRequest(req, server, port);
       },
       websocket: {
         open(ws) {
-          bridge.addWebSocketClient(ws);
+          bridge.addClient(ws);
           ws.send(
             JSON.stringify({
               type: "connected",
@@ -746,14 +429,14 @@ function tryStartServer(port: number): ReturnType<typeof Bun.serve> | null {
           );
         },
         message(ws, message) {
-          handleWebSocketMessage(ws, message);
+          handleMessage(ws, message);
         },
         close(ws) {
-          bridge.removeWebSocketClient(ws);
+          bridge.removeClient(ws);
         },
+        idleTimeout: 120, // 2 minutes
       },
     });
-    return server;
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "EADDRINUSE") {
       return null;
@@ -763,9 +446,7 @@ function tryStartServer(port: number): ReturnType<typeof Bun.serve> | null {
 }
 
 /**
- * Start the HTTP/WebSocket bridge server for Roblox plugin communication
- * Attempts to bind to configured port with graceful error handling
- * Server startup failure is non-fatal - MCP server continues without bridge
+ * Start the WebSocket bridge server
  */
 export function startBridgeServer(): void {
   const port = config.bridgePort;
@@ -773,29 +454,20 @@ export function startBridgeServer(): void {
   try {
     const server = tryStartServer(port);
     if (!server) {
-      // Port in use - log warning but don't throw (allows MCP to continue)
-      console.error(
-        `[Bridge] WARNING: Port ${port} is in use. Please set ROBLOX_BRIDGE_PORT to a different port.`
-      );
-      console.error(`[Bridge] MCP server will start without Roblox bridge functionality.`);
-      logger.bridge.warn("Bridge server port in use - continuing without bridge", { port });
+      console.error(`[Bridge] Port ${port} in use. Set ROBLOX_BRIDGE_PORT to a different port.`);
+      logger.bridge.warn("Bridge port in use", { port });
       return;
     }
 
     activeBridgePort = port;
-    console.error(`[Bridge] Roblox bridge server running on port ${port} (v${config.version})`);
-    logger.bridge.info("Roblox bridge server started", { port, version: config.version });
+    console.error(`[Bridge] WebSocket server on ws://localhost:${port} (v${config.version})`);
+    logger.bridge.info("Bridge server started", { port, version: config.version });
   } catch (error) {
     activeBridgePort = null;
-    const errorMsg =
-      error instanceof Error ? error.message : `Failed to start bridge server: ${String(error)}`;
-
-    console.error(`[Bridge] ERROR: ${errorMsg}`);
-    console.error(`[Bridge] MCP server will start without Roblox bridge functionality.`);
-    logger.bridge.error(
-      "Bridge server startup failed - MCP server will still start",
-      error instanceof Error ? error : undefined,
-      { port, recoverable: true }
-    );
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[Bridge] Failed to start: ${msg}`);
+    logger.bridge.error("Bridge startup failed", error instanceof Error ? error : undefined, {
+      port,
+    });
   }
 }

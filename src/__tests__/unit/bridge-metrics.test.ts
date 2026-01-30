@@ -1,23 +1,69 @@
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { bridge } from "../../utils/bridge";
+import type { ServerWebSocket } from "bun";
+
+interface MockWSClientData {
+  id: string;
+  connectedAt: number;
+  version?: string;
+  ready: boolean;
+}
+
+const createMockWebSocket = (id: string): ServerWebSocket<MockWSClientData> => {
+  const messages: string[] = [];
+  return {
+    data: { id, connectedAt: Date.now(), ready: false },
+    send: mock((msg: string) => messages.push(msg)),
+    close: mock(() => {}),
+    readyState: 1,
+    remoteAddress: "127.0.0.1",
+    binaryType: "nodebuffer" as const,
+    subscribe: mock(() => {}),
+    unsubscribe: mock(() => {}),
+    publish: mock(() => 0),
+    publishText: mock(() => 0),
+    publishBinary: mock(() => 0),
+    isSubscribed: mock(() => false),
+    cork: mock(() => {}),
+    ping: mock(() => {}),
+    pong: mock(() => {}),
+    terminate: mock(() => {}),
+    sendBinary: mock(() => {}),
+    sendText: mock(() => {}),
+    subscriptions: [],
+    getBufferedAmount: mock(() => 0),
+    _getMessages: () => messages,
+  } as unknown as ServerWebSocket<MockWSClientData>;
+};
+
+function getCommands(
+  ws: ServerWebSocket<MockWSClientData>
+): Array<{ id: string; method: string; params: Record<string, unknown> }> {
+  const messages = (ws as unknown as { _getMessages: () => string[] })._getMessages();
+  const cmdMessages = messages.filter((m) => m.includes('"type":"commands"'));
+  return cmdMessages.flatMap((m) => JSON.parse(m).data);
+}
 
 describe("RobloxBridge - Metrics", () => {
+  let ws: ServerWebSocket<MockWSClientData>;
+
   beforeEach(async () => {
-    // Reset bridge state
     (bridge as { resetForTesting?: () => void }).resetForTesting?.();
-
-    // Clear pending commands
-    bridge.getPendingCommands();
-
-    // Give time for any async operations to settle
+    ws = createMockWebSocket("test-client");
+    bridge.addClient(ws);
+    bridge.markClientReady(ws, "1.0.0");
     await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+
+  afterEach(() => {
+    bridge.removeClient(ws);
   });
 
   test("tracks successful command execution", async () => {
     const metricsBefore = bridge.getMetrics();
 
     const promise = bridge.execute("CreateInstance", { className: "Part" });
-    const commands = bridge.getPendingCommands();
+    const commands = getCommands(ws);
 
     bridge.handleResult({ id: commands[0].id, success: true, data: "Part created" });
     await promise;
@@ -32,7 +78,7 @@ describe("RobloxBridge - Metrics", () => {
     const metricsBefore = bridge.getMetrics();
 
     const promise = bridge.execute("DeleteInstance", { path: "game.Workspace.NonExistent" });
-    const commands = bridge.getPendingCommands();
+    const commands = getCommands(ws);
 
     bridge.handleResult({
       id: commands[0].id,
@@ -50,7 +96,6 @@ describe("RobloxBridge - Metrics", () => {
   });
 
   test("calculates success rate correctly", async () => {
-    // Execute 3 successful and 1 failed command
     const promises: Promise<unknown>[] = [];
 
     for (let i = 0; i < 3; i++) {
@@ -61,21 +106,18 @@ describe("RobloxBridge - Metrics", () => {
     const failPromise = bridge.execute("DeleteInstance", { path: "NonExistent" });
     promises.push(failPromise.catch(() => {}));
 
-    const commands = bridge.getPendingCommands();
+    const commands = getCommands(ws);
 
-    // Resolve first 3 as success
     for (let i = 0; i < 3; i++) {
       bridge.handleResult({ id: commands[i].id, success: true, data: "ok" });
     }
 
-    // Resolve last as failure
     bridge.handleResult({ id: commands[3].id, success: false, data: null, error: "Not found" });
 
     await Promise.all(promises);
 
     const metrics = bridge.getMetrics();
 
-    // Success rate should account for recent commands
     expect(metrics.successRate).toBeGreaterThan(0);
     expect(metrics.successRate).toBeLessThan(1);
   });
@@ -85,7 +127,7 @@ describe("RobloxBridge - Metrics", () => {
     const promise2 = bridge.execute("GetProperty", { path: "game.Workspace", property: "Name" });
     const promise3 = bridge.execute("CreateInstance", { className: "Model" });
 
-    const commands = bridge.getPendingCommands();
+    const commands = getCommands(ws);
 
     for (const cmd of commands) {
       bridge.handleResult({ id: cmd.id, success: true, data: "ok" });
@@ -95,12 +137,10 @@ describe("RobloxBridge - Metrics", () => {
 
     const metrics = bridge.getMetrics();
 
-    // Check method stats exist
     expect(metrics.methodStats).toBeDefined();
     expect(metrics.methodStats.CreateInstance).toBeDefined();
     expect(metrics.methodStats.GetProperty).toBeDefined();
 
-    // CreateInstance should have count of at least 2
     expect(metrics.methodStats.CreateInstance.count).toBeGreaterThanOrEqual(2);
     expect(metrics.methodStats.GetProperty.count).toBeGreaterThanOrEqual(1);
   });
@@ -112,7 +152,7 @@ describe("RobloxBridge - Metrics", () => {
       value: 0.5,
     });
 
-    const commands = bridge.getPendingCommands();
+    const commands = getCommands(ws);
     bridge.handleResult({ id: commands[0].id, success: true, data: null });
 
     await promise;
@@ -129,9 +169,8 @@ describe("RobloxBridge - Metrics", () => {
 
   test("calculates average duration", async () => {
     const promise = bridge.execute("CreateInstance", { className: "Part" });
-    const commands = bridge.getPendingCommands();
+    const commands = getCommands(ws);
 
-    // Wait a bit before resolving
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     bridge.handleResult({ id: commands[0].id, success: true, data: "ok" });

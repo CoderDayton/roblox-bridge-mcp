@@ -16,7 +16,7 @@ Thank you for your interest in contributing! This document provides guidelines f
 1. Fork and clone the repository
 2. Install dependencies: `bun install`
 3. Copy `.env.example` to `.env` and configure if needed
-4. Install the Roblox plugin: Copy `plugin/loader.server.lua` to `%LOCALAPPDATA%\Roblox\Plugins\`
+4. Install the Roblox plugin: Copy the `plugin/` folder contents to `%LOCALAPPDATA%\Roblox\Plugins\Roblox Bridge MCP\`
 
 ## Development Workflow
 
@@ -137,10 +137,29 @@ src/
 │   └── logger.ts         # Structured logging
 ├── tools/
 │   ├── index.ts          # Tool registration
-│   └── roblox-tools.ts   # Roblox Studio tools
+│   └── roblox-tools.ts   # Roblox Studio tools (205 methods)
 └── __tests__/            # Test suite
+
 plugin/
-└── loader.server.lua     # Roblox Studio plugin
+├── loader.server.lua     # Plugin loader
+├── mcp-bridge.server.lua # Alternative entry point
+└── roblox-bridge/
+    ├── init.server.lua   # Main orchestration
+    ├── tools/            # Tool modules (7 files)
+    │   ├── instance.lua  # Instance management
+    │   ├── spatial.lua   # Transforms, physics
+    │   ├── visual.lua    # Appearance, lighting, GUI
+    │   ├── world.lua     # Terrain, camera, pathfinding
+    │   ├── players.lua   # Players, teams, animation
+    │   ├── scripting.lua # Script manipulation
+    │   └── async.lua     # Audio, tweens, networking
+    └── utils/            # Utility modules
+        ├── services.lua  # Cached service references
+        ├── path.lua      # Path resolution
+        └── sandbox.lua   # Safe code execution
+
+docs/
+└── API.md                # Complete API reference
 ```
 
 ## Pull Request Process
@@ -185,39 +204,52 @@ Tools follow the consolidated pattern in `src/tools/roblox-tools.ts`:
 
 1. Add method name to `METHODS` array in `src/tools/roblox-tools.ts`
 2. Add method signature to `DESCRIPTION` string
-3. Update tool count in README (currently 99 methods)
-4. Implement in `plugin/loader.server.lua`:
-   - Add to appropriate Tools table function
-   - Handle all params with validation
-   - Return `{ success = true, data = result }` or throw error
+3. Update tool count in README and docs/API.md (currently 205 methods)
+4. Implement in the appropriate `plugin/roblox-bridge/tools/*.lua` module:
+   - `instance.lua` - Instance management, hierarchy, selection
+   - `spatial.lua` - Transforms, physics, raycasting
+   - `visual.lua` - Appearance, lighting, effects, GUI
+   - `world.lua` - Terrain, camera, pathfinding, attributes
+   - `players.lua` - Players, teams, animation, humanoid
+   - `scripting.lua` - Script manipulation
+   - `async.lua` - Audio, tweens, networking, DataStore
 5. Add tests for validation and execution
 6. Document in CHANGELOG.md under `[Unreleased]`
 7. Update capability categorization in `src/resources/index.ts` if adding new category
 
 ### Lua Implementation
 
-```lua
-function Tools.YourMethod(p)
-	-- Validate required params
-	local param1 = requireParam(p.param1, "param1")
+Add methods to the appropriate tool module in `plugin/roblox-bridge/tools/`:
 
-	-- Optional params with defaults
-	local param2 = p.param2 or "default"
+```lua
+-- In tools/instance.lua (or appropriate module)
+function Tools.YourMethod(p)
+	-- Use Path utilities for instance resolution
+	local obj = Path.require(p.path)
+
+	-- Use typed helpers for specific types
+	local part = Path.requireBasePart(p.path)
+	local humanoid = Path.requireHumanoid(p.path)
+
+	-- Use Services for cached service access
+	local Players = Services.Players
 
 	-- Implementation
-	local result = doSomething(param1, param2)
+	local result = doSomething(obj)
 
-	-- Return success or throw error
+	-- Return value or throw error
 	return result
 end
 ```
 
 ### Lua Best Practices
 
-- Extract helper functions to reduce complexity
-- Use `requirePath()` for instance lookups
-- Use `requireParam()` for required parameters
-- Document all public functions with Lua comments
+- Add methods to the correct category module (see project structure)
+- Use `Path.require()` for instance lookups
+- Use `Path.requireBasePart()`, `Path.requireHumanoid()`, etc. for typed access
+- Use `Services.*` for cached service references
+- Follow existing patterns in the module you're editing
+- Add method to module header comment when adding new methods
 - Prefer explicit error messages over generic failures
 - Test with Roblox Studio before submitting
 
