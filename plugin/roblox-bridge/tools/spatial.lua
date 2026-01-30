@@ -286,4 +286,80 @@ function Tools.GetConnectedParts(p)
 	return paths
 end
 
+-- Attachments
+function Tools.CreateAttachment(p)
+	local parent = Path.requireBasePart(p.parentPath)
+	local attachment = Instance.new("Attachment")
+	attachment.Name = p.name or "Attachment"
+	if p.position then
+		attachment.Position = Vector3.new(p.position[1], p.position[2], p.position[3])
+	end
+	if p.orientation then
+		attachment.Orientation = Vector3.new(p.orientation[1], p.orientation[2], p.orientation[3])
+	end
+	attachment.Parent = parent
+	return attachment:GetFullName()
+end
+
+function Tools.GetAttachmentPosition(p)
+	local att = Path.require(p.path)
+	if not att:IsA("Attachment") then error("Not an Attachment: " .. p.path) end
+	return { att.WorldPosition.X, att.WorldPosition.Y, att.WorldPosition.Z }
+end
+
+function Tools.SetAttachmentPosition(p)
+	local att = Path.require(p.path)
+	if not att:IsA("Attachment") then error("Not an Attachment: " .. p.path) end
+	att.Position = Vector3.new(p.x, p.y, p.z)
+	return "Set"
+end
+
+-- Collision Groups
+function Tools.SetCollisionGroup(p)
+	local part = Path.requireBasePart(p.path)
+	part.CollisionGroup = p.group
+	return "Set"
+end
+
+function Tools.GetCollisionGroup(p)
+	return Path.requireBasePart(p.path).CollisionGroup
+end
+
+-- Additional Part Properties
+function Tools.SetMassless(p)
+	Path.requireBasePart(p.path).Massless = p.massless
+	return "Set"
+end
+
+function Tools.GetVelocity(p)
+	local part = Path.requireBasePart(p.path)
+	local vel = part.AssemblyLinearVelocity
+	return { vel.X, vel.Y, vel.Z }
+end
+
+function Tools.SetVelocity(p)
+	local part = Path.requireBasePart(p.path)
+	part.AssemblyLinearVelocity = Vector3.new(p.x, p.y, p.z)
+	return "Set"
+end
+
+function Tools.GetAngularVelocity(p)
+	local part = Path.requireBasePart(p.path)
+	local vel = part.AssemblyAngularVelocity
+	return { vel.X, vel.Y, vel.Z }
+end
+
+function Tools.SetAngularVelocity(p)
+	local part = Path.requireBasePart(p.path)
+	part.AssemblyAngularVelocity = Vector3.new(p.x, p.y, p.z)
+	return "Set"
+end
+
+-- Center of Mass
+function Tools.GetCenterOfMass(p)
+	local part = Path.requireBasePart(p.path)
+	local com = part.CenterOfMass
+	return { com.X, com.Y, com.Z }
+end
+
 return Tools

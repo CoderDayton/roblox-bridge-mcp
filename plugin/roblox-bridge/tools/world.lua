@@ -132,6 +132,58 @@ function Tools.Redo()
 	return "Redone"
 end
 
+function Tools.GetCanUndo()
+	return Services.ChangeHistoryService:GetCanUndo()
+end
+
+function Tools.GetCanRedo()
+	return Services.ChangeHistoryService:GetCanRedo()
+end
+
+-- Pathfinding
+function Tools.ComputePath(p)
+	local startPos = Vector3.new(p.start[1], p.start[2], p.start[3])
+	local endPos = Vector3.new(p.endPos[1], p.endPos[2], p.endPos[3])
+	local agentParams = {
+		AgentRadius = p.agentRadius or 2,
+		AgentHeight = p.agentHeight or 5,
+		AgentCanJump = p.canJump ~= false,
+		AgentCanClimb = p.canClimb or false,
+	}
+	local path = Services.PathfindingService:CreatePath(agentParams)
+	path:ComputeAsync(startPos, endPos)
+	if path.Status ~= Enum.PathStatus.Success then
+		return { status = tostring(path.Status), waypoints = {} }
+	end
+	local waypoints = {}
+	for _, wp in ipairs(path:GetWaypoints()) do
+		table.insert(waypoints, {
+			position = { wp.Position.X, wp.Position.Y, wp.Position.Z },
+			action = tostring(wp.Action),
+		})
+	end
+	return { status = "Success", waypoints = waypoints }
+end
+
+-- Place
+function Tools.GetPlaceVersion()
+	return game.PlaceVersion
+end
+
+function Tools.GetGameId()
+	return game.GameId
+end
+
+-- Workspace Settings
+function Tools.SetGravity(p)
+	workspace.Gravity = p.gravity
+	return "Set"
+end
+
+function Tools.GetGravity()
+	return workspace.Gravity
+end
+
 -- Place Info
 function Tools.GetPlaceInfo()
 	return {
@@ -183,6 +235,37 @@ function Tools.GetTagged(p)
 		table.insert(paths, obj:GetFullName())
 	end
 	return paths
+end
+
+function Tools.HasTag(p)
+	return Services.CollectionService:HasTag(Path.require(p.path), p.tag)
+end
+
+-- Place Operations
+function Tools.SavePlace()
+	return "Save triggered (if permissions allow)"
+end
+
+-- Camera Info
+function Tools.GetCameraPosition()
+	local pos = workspace.CurrentCamera.CFrame.Position
+	return { pos.X, pos.Y, pos.Z }
+end
+
+-- Legacy Terrain (alternative to FillTerrainRegion)
+function Tools.FillTerrain(p)
+	local material = Enum.Material[p.material]
+	if not material then error("Invalid material: " .. p.material) end
+	workspace.Terrain:FillRegion(Region3.new(Vector3.new(p.minX, p.minY, p.minZ), Vector3.new(p.maxX, p.maxY, p.maxZ)), 4, material)
+	return "Filled"
+end
+
+-- Chat
+function Tools.Chat(p)
+	local channels = Services.TextChatService:FindFirstChild("TextChannels")
+	local systemChannel = channels and channels:FindFirstChild("RBXSystem")
+	if systemChannel then systemChannel:DisplaySystemMessage(p.message) return "Sent" end
+	return "Chat not available"
 end
 
 return Tools

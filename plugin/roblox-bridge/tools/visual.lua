@@ -57,6 +57,91 @@ function Tools.CreateLight(p)
 	return light:GetFullName()
 end
 
+-- Environment
+function Tools.SetAtmosphereColor(p)
+	local atmo = Services.Lighting:FindFirstChildOfClass("Atmosphere")
+	if not atmo then
+		atmo = Instance.new("Atmosphere")
+		atmo.Parent = Services.Lighting
+	end
+	atmo.Color = Color3.fromRGB(p.r, p.g, p.b)
+	if p.haze then atmo.Haze = p.haze end
+	return "Set"
+end
+
+function Tools.SetGlobalShadows(p)
+	Services.Lighting.GlobalShadows = p.enabled
+	return "Set"
+end
+
+function Tools.SetFog(p)
+	Services.Lighting.FogStart = p.start or 0
+	Services.Lighting.FogEnd = p.fogEnd or 100000
+	if p.color then
+		Services.Lighting.FogColor = Color3.fromRGB(p.color[1], p.color[2], p.color[3])
+	end
+	return "Set"
+end
+
+function Tools.CreateClouds(p)
+	local existing = workspace:FindFirstChildOfClass("Clouds")
+	if existing then existing:Destroy() end
+	local clouds = Instance.new("Clouds")
+	if p.cover then clouds.Cover = p.cover end
+	if p.density then clouds.Density = p.density end
+	if p.color then clouds.Color = Color3.fromRGB(p.color[1], p.color[2], p.color[3]) end
+	clouds.Parent = workspace.Terrain
+	return clouds:GetFullName()
+end
+
+function Tools.SetSkybox(p)
+	local sky = Services.Lighting:FindFirstChildOfClass("Sky")
+	if not sky then
+		sky = Instance.new("Sky")
+		sky.Parent = Services.Lighting
+	end
+	if p.skyboxBk then sky.SkyboxBk = "rbxassetid://" .. tostring(p.skyboxBk) end
+	if p.skyboxDn then sky.SkyboxDn = "rbxassetid://" .. tostring(p.skyboxDn) end
+	if p.skyboxFt then sky.SkyboxFt = "rbxassetid://" .. tostring(p.skyboxFt) end
+	if p.skyboxLf then sky.SkyboxLf = "rbxassetid://" .. tostring(p.skyboxLf) end
+	if p.skyboxRt then sky.SkyboxRt = "rbxassetid://" .. tostring(p.skyboxRt) end
+	if p.skyboxUp then sky.SkyboxUp = "rbxassetid://" .. tostring(p.skyboxUp) end
+	if p.sunTextureId then sky.SunTextureId = "rbxassetid://" .. tostring(p.sunTextureId) end
+	if p.moonTextureId then sky.MoonTextureId = "rbxassetid://" .. tostring(p.moonTextureId) end
+	return sky:GetFullName()
+end
+
+function Tools.CreateBeam(p)
+	local att0 = Path.require(p.attachment0Path)
+	local att1 = Path.require(p.attachment1Path)
+	if not att0:IsA("Attachment") or not att1:IsA("Attachment") then
+		error("Both paths must be Attachments")
+	end
+	local beam = Instance.new("Beam")
+	beam.Attachment0, beam.Attachment1 = att0, att1
+	if p.color then beam.Color = ColorSequence.new(Color3.fromRGB(p.color[1], p.color[2], p.color[3])) end
+	if p.width0 then beam.Width0 = p.width0 end
+	if p.width1 then beam.Width1 = p.width1 end
+	if p.segments then beam.Segments = p.segments end
+	beam.Parent = att0.Parent
+	return beam:GetFullName()
+end
+
+function Tools.CreateTrail(p)
+	local att0 = Path.require(p.attachment0Path)
+	local att1 = Path.require(p.attachment1Path)
+	if not att0:IsA("Attachment") or not att1:IsA("Attachment") then
+		error("Both paths must be Attachments")
+	end
+	local trail = Instance.new("Trail")
+	trail.Attachment0, trail.Attachment1 = att0, att1
+	if p.lifetime then trail.Lifetime = p.lifetime end
+	if p.color then trail.Color = ColorSequence.new(Color3.fromRGB(p.color[1], p.color[2], p.color[3])) end
+	if p.widthScale then trail.WidthScale = NumberSequence.new(p.widthScale) end
+	trail.Parent = att0.Parent
+	return trail:GetFullName()
+end
+
 function Tools.HighlightObject(p)
 	local obj = Path.require(p.path)
 	local hl = Instance.new("Highlight")

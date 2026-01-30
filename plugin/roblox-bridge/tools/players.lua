@@ -142,4 +142,26 @@ function Tools.StopAnimation(p)
 	return "Stopped"
 end
 
+-- Player Movement
+function Tools.GetPlayerPosition(p)
+	local player = Services.Players:FindFirstChild(p.username)
+	if not player or not player.Character then error("Player or character not found: " .. p.username) end
+	local root = player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then error("Character root not found") end
+	return { root.Position.X, root.Position.Y, root.Position.Z }
+end
+
+function Tools.TeleportPlayer(p)
+	local player = Services.Players:FindFirstChild(p.username)
+	if not player or not player.Character then error("Player or character not found") end
+	player.Character:MoveTo(Vector3.new(p.position[1], p.position[2], p.position[3]))
+	return "Teleported"
+end
+
+function Tools.KickPlayer(p)
+	local player = Services.Players:FindFirstChild(p.username)
+	if player then player:Kick(p.reason or "Kicked by MCP") end
+	return "Kicked"
+end
+
 return Tools

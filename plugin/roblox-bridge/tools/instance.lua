@@ -47,6 +47,47 @@ function Tools.WaitForChild(p)
 	return child and child:GetFullName() or nil
 end
 
+function Tools.FindFirstAncestor(p)
+	local obj = Path.require(p.path)
+	local ancestor = obj:FindFirstAncestor(p.name)
+	return ancestor and ancestor:GetFullName() or nil
+end
+
+function Tools.FindFirstAncestorOfClass(p)
+	local obj = Path.require(p.path)
+	local ancestor = obj:FindFirstAncestorOfClass(p.className)
+	return ancestor and ancestor:GetFullName() or nil
+end
+
+function Tools.FindFirstAncestorWhichIsA(p)
+	local obj = Path.require(p.path)
+	local ancestor = obj:FindFirstAncestorWhichIsA(p.className)
+	return ancestor and ancestor:GetFullName() or nil
+end
+
+function Tools.FindFirstChildOfClass(p)
+	local obj = Path.require(p.path)
+	local child = obj:FindFirstChildOfClass(p.className)
+	return child and child:GetFullName() or nil
+end
+
+function Tools.FindFirstChildWhichIsA(p)
+	local obj = Path.require(p.path)
+	local child = obj:FindFirstChildWhichIsA(p.className, p.recursive or false)
+	return child and child:GetFullName() or nil
+end
+
+function Tools.FindFirstDescendant(p)
+	local obj = Path.require(p.path)
+	local desc = obj:FindFirstDescendant(p.name)
+	return desc and desc:GetFullName() or nil
+end
+
+function Tools.GetDebugId(p)
+	local obj = Path.require(p.path)
+	return obj:GetDebugId()
+end
+
 -- Properties
 function Tools.SetProperty(p)
 	local obj = Path.require(p.path)

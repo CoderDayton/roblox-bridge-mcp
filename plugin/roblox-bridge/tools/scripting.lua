@@ -25,6 +25,37 @@ function Tools.SetScriptSource(p)
 	return "Set"
 end
 
+function Tools.AppendToScript(p)
+	local obj = Path.requireScript(p.path)
+	obj.Source = obj.Source .. "\n" .. p.code
+	return "Appended"
+end
+
+function Tools.ReplaceScriptLines(p)
+	local obj = Path.requireScript(p.path)
+	local lines = string.split(obj.Source, "\n")
+	local newLines = {}
+	local contentLines = string.split(p.content, "\n")
+	for i = 1, p.startLine - 1 do if lines[i] then table.insert(newLines, lines[i]) end end
+	for _, line in pairs(contentLines) do table.insert(newLines, line) end
+	for i = p.endLine + 1, #lines do table.insert(newLines, lines[i]) end
+	obj.Source = table.concat(newLines, "\n")
+	return "Replaced"
+end
+
+function Tools.InsertScriptLines(p)
+	local obj = Path.requireScript(p.path)
+	local lines = string.split(obj.Source, "\n")
+	local contentLines = string.split(p.content, "\n")
+	local newLines = {}
+	local insertAt = math.clamp(p.lineNumber, 1, #lines + 1)
+	for i = 1, insertAt - 1 do table.insert(newLines, lines[i]) end
+	for _, line in pairs(contentLines) do table.insert(newLines, line) end
+	for i = insertAt, #lines do table.insert(newLines, lines[i]) end
+	obj.Source = table.concat(newLines, "\n")
+	return "Inserted"
+end
+
 -- Console Execution
 function Tools.RunConsoleCommand(p)
 	return Sandbox.execute(p.code)
