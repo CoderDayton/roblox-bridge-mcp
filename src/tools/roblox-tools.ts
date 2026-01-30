@@ -548,7 +548,7 @@ export function registerAllTools(server: FastMCP): void {
       }
 
       const result = await bridge.execute(method, params, config.retries);
-      return typeof result === "string" ? result : JSON.stringify(result, null, 2);
+      return typeof result === "string" ? result : JSON.stringify(result);
     },
   });
 }

@@ -5,6 +5,63 @@ import { config, isVersionCompatible } from "../config";
 import { logger } from "./logger";
 import type { ServerWebSocket } from "bun";
 
+/** Message type constants */
+const MessageTypes = {
+  HANDSHAKE: "handshake",
+  HANDSHAKE_OK: "handshake_ok",
+  RESULT: "result",
+  COMMANDS: "commands",
+  ACK: "ack",
+  PING: "ping",
+  PONG: "pong",
+  ERROR: "error",
+  CONNECTED: "connected",
+} as const;
+
+/** Type guards for message handling */
+interface HandshakeMessage {
+  type: typeof MessageTypes.HANDSHAKE;
+  version: string;
+}
+
+interface ResultMessage {
+  type: typeof MessageTypes.RESULT;
+  data: RobloxResult;
+}
+
+interface PingMessage {
+  type: typeof MessageTypes.PING;
+}
+
+function isHandshakeMessage(data: unknown): data is HandshakeMessage {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "type" in data &&
+    data.type === MessageTypes.HANDSHAKE &&
+    "version" in data &&
+    typeof data.version === "string"
+  );
+}
+
+function isResultMessage(data: unknown): data is ResultMessage {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "type" in data &&
+    data.type === MessageTypes.RESULT &&
+    "data" in data &&
+    data.data !== null &&
+    data.data !== undefined
+  );
+}
+
+function isPingMessage(data: unknown): data is PingMessage {
+  return (
+    typeof data === "object" && data !== null && "type" in data && data.type === MessageTypes.PING
+  );
+}
+
 /**
  * Command sent from MCP server to Roblox Studio plugin
  */
@@ -116,9 +173,16 @@ class RobloxBridge extends EventEmitter {
    */
   getMetrics(): BridgeMetrics {
     const total = this.commandHistory.length;
-    const successes = this.commandHistory.filter((c) => c.success).length;
-    const avgDuration =
-      total > 0 ? this.commandHistory.reduce((sum, c) => sum + c.duration, 0) / total : 0;
+
+    // Single-pass loop to count successes and sum durations
+    let successes = 0;
+    let totalDuration = 0;
+    for (const cmd of this.commandHistory) {
+      if (cmd.success) successes++;
+      totalDuration += cmd.duration;
+    }
+
+    const avgDuration = total > 0 ? totalDuration / total : 0;
 
     return {
       totalCommands: total,
@@ -135,16 +199,17 @@ class RobloxBridge extends EventEmitter {
     string,
     { count: number; avgDuration: number; failures: number }
   > {
-    const stats = new Map<string, { count: number; avgDuration: number; failures: number }>();
+    // Build object directly instead of Map + Object.fromEntries
+    const stats: Record<string, { count: number; avgDuration: number; failures: number }> = {};
     for (const cmd of this.commandHistory) {
-      const existing = stats.get(cmd.method) ?? { count: 0, avgDuration: 0, failures: 0 };
+      const existing = stats[cmd.method] ?? { count: 0, avgDuration: 0, failures: 0 };
       existing.avgDuration =
         (existing.avgDuration * existing.count + cmd.duration) / (existing.count + 1);
       existing.count++;
       if (!cmd.success) existing.failures++;
-      stats.set(cmd.method, existing);
+      stats[cmd.method] = existing;
     }
-    return Object.fromEntries(stats);
+    return stats;
   }
 
   /**
@@ -195,7 +260,8 @@ class RobloxBridge extends EventEmitter {
     params: Record<string, unknown>,
     attempt: number
   ): Promise<T> {
-    const id = crypto.randomUUID().slice(0, 8);
+    // Use substring instead of slice for slightly better performance
+    const id = crypto.randomUUID().substring(0, 8);
     const command: RobloxCommand = { id, method, params };
 
     this.commandQueue.push(command);
@@ -236,10 +302,11 @@ class RobloxBridge extends EventEmitter {
   private sendCommands(): void {
     if (this.commandQueue.length === 0) return;
 
-    const commands = [...this.commandQueue];
+    // Swap references instead of copying array
+    const commands = this.commandQueue;
     this.commandQueue = [];
 
-    const message = JSON.stringify({ type: "commands", data: commands });
+    const message = JSON.stringify({ type: MessageTypes.COMMANDS, data: commands });
     for (const client of this.wsClients) {
       if (client.data.ready) {
         client.send(message);
@@ -329,11 +396,11 @@ function handleMessage(ws: ServerWebSocket<WSClientData>, message: string | Buff
     const data = JSON.parse(message.toString());
 
     // Handshake - version check
-    if (data.type === "handshake" && data.version) {
+    if (isHandshakeMessage(data)) {
       if (!isVersionCompatible(data.version)) {
         ws.send(
           JSON.stringify({
-            type: "error",
+            type: MessageTypes.ERROR,
             code: "VERSION_MISMATCH",
             message: `Plugin version ${data.version} incompatible with server ${config.version}`,
             serverVersion: config.version,
@@ -346,7 +413,7 @@ function handleMessage(ws: ServerWebSocket<WSClientData>, message: string | Buff
       bridge.markClientReady(ws, data.version);
       ws.send(
         JSON.stringify({
-          type: "handshake_ok",
+          type: MessageTypes.HANDSHAKE_OK,
           serverVersion: config.version,
           pluginVersion: data.version,
         })
@@ -355,17 +422,22 @@ function handleMessage(ws: ServerWebSocket<WSClientData>, message: string | Buff
     }
 
     // Result from command execution
-    if (data.type === "result" && data.data) {
-      bridge.handleResult(data.data as RobloxResult);
-      ws.send(JSON.stringify({ type: "ack", id: data.data.id }));
+    if (isResultMessage(data)) {
+      bridge.handleResult(data.data);
+      // Use template literal for simple message
+      ws.send(`{"type":"${MessageTypes.ACK}","id":"${data.data.id}"}`);
+      return;
     }
 
     // Ping/pong for keepalive
-    if (data.type === "ping") {
-      ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+    if (isPingMessage(data)) {
+      // Use template literal for pong response
+      ws.send(`{"type":"${MessageTypes.PONG}","timestamp":${Date.now()}}`);
+      return;
     }
   } catch {
-    ws.send(JSON.stringify({ type: "error", message: "Invalid JSON" }));
+    // Pre-serialize static error message
+    ws.send(`{"type":"${MessageTypes.ERROR}","message":"Invalid JSON"}`);
   }
 }
 
@@ -381,7 +453,7 @@ function handleRequest(
 
   // WebSocket upgrade
   if (url.pathname === "/ws" || url.pathname === "/") {
-    const clientId = crypto.randomUUID().slice(0, 8);
+    const clientId = crypto.randomUUID().substring(0, 8);
     const upgraded = server.upgrade(req, {
       data: { id: clientId, connectedAt: Date.now(), ready: false },
     });
@@ -422,7 +494,7 @@ function tryStartServer(port: number): ReturnType<typeof Bun.serve> | null {
           bridge.addClient(ws);
           ws.send(
             JSON.stringify({
-              type: "connected",
+              type: MessageTypes.CONNECTED,
               clientId: ws.data.id,
               serverVersion: config.version,
             })

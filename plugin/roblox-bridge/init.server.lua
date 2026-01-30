@@ -1,7 +1,13 @@
+--!optimize 2
 --------------------------------------------------------------------------------
 -- MCP Bridge Plugin for Roblox Studio
 -- Connects Studio to MCP server via WebSocket
 --------------------------------------------------------------------------------
+
+-- Localize globals for performance
+local pairs = pairs
+local pcall = pcall
+local tostring = tostring
 
 local VERSION = "1.1.0"
 local CONFIG = {

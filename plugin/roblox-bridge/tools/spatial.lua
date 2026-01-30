@@ -1,3 +1,4 @@
+--!optimize 2
 --------------------------------------------------------------------------------
 -- Spatial & Physics Tools
 -- Provides methods for transforms, physics properties, constraints, and raycasting.
@@ -14,6 +15,17 @@
 --   Raycasting: Raycast, RaycastTo, Spherecast, Blockcast, GetPartsInPart, GetPartBoundsInRadius, GetPartBoundsInBox
 --   Utilities: GetDistance
 --------------------------------------------------------------------------------
+
+-- Localize globals for performance
+local table_insert = table.insert
+local table_create = table.create
+local pairs = pairs
+local ipairs = ipairs
+local pcall = pcall
+local tostring = tostring
+local Vector3_new = Vector3.new
+local CFrame_new = CFrame.new
+
 local Path = require(script.Parent.Parent.utils.path)
 
 local Tools = {}
@@ -21,7 +33,8 @@ local Tools = {}
 -- Transform
 function Tools.MoveTo(p)
 	local obj = Path.require(p.path)
-	local pos = Vector3.new(p.position[1], p.position[2], p.position[3])
+	local position = p.position
+	local pos = Vector3_new(position[1], position[2], position[3])
 	if obj:IsA("Model") then obj:MoveTo(pos)
 	elseif obj:IsA("BasePart") then obj.Position = pos
 	else error("Cannot move: not a Model or BasePart") end
@@ -29,7 +42,7 @@ function Tools.MoveTo(p)
 end
 
 function Tools.SetPosition(p)
-	Path.requireBasePart(p.path).Position = Vector3.new(p.x, p.y, p.z)
+	Path.requireBasePart(p.path).Position = Vector3_new(p.x, p.y, p.z)
 	return "Set"
 end
 
@@ -39,7 +52,7 @@ function Tools.GetPosition(p)
 end
 
 function Tools.SetRotation(p)
-	Path.requireBasePart(p.path).Rotation = Vector3.new(p.x, p.y, p.z)
+	Path.requireBasePart(p.path).Rotation = Vector3_new(p.x, p.y, p.z)
 	return "Set"
 end
 
@@ -49,7 +62,7 @@ function Tools.GetRotation(p)
 end
 
 function Tools.SetSize(p)
-	Path.requireBasePart(p.path).Size = Vector3.new(p.x, p.y, p.z)
+	Path.requireBasePart(p.path).Size = Vector3_new(p.x, p.y, p.z)
 	return "Set"
 end
 
@@ -62,7 +75,7 @@ function Tools.PivotTo(p)
 	local obj = Path.require(p.path)
 	if not obj:IsA("PVInstance") then error("Not a PVInstance") end
 	local c = p.cframe
-	obj:PivotTo(CFrame.new(c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12]))
+	obj:PivotTo(CFrame_new(c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12]))
 	return "Pivoted"
 end
 
@@ -109,13 +122,15 @@ function Tools.GetMass(p) return Path.requireBasePart(p.path):GetMass() end
 
 function Tools.ApplyImpulse(p)
 	local part = Path.requireBasePart(p.path)
-	part:ApplyImpulse(Vector3.new(p.impulse[1], p.impulse[2], p.impulse[3]))
+	local impulse = p.impulse
+	part:ApplyImpulse(Vector3_new(impulse[1], impulse[2], impulse[3]))
 	return "Applied"
 end
 
 function Tools.ApplyAngularImpulse(p)
 	local part = Path.requireBasePart(p.path)
-	part:ApplyAngularImpulse(Vector3.new(p.impulse[1], p.impulse[2], p.impulse[3]))
+	local impulse = p.impulse
+	part:ApplyAngularImpulse(Vector3_new(impulse[1], impulse[2], impulse[3]))
 	return "Applied"
 end
 
@@ -128,8 +143,8 @@ end
 function Tools.GetJoints(p)
 	local part = Path.requireBasePart(p.path)
 	local joints = part:GetJoints()
-	local paths = {}
-	for _, j in pairs(joints) do table.insert(paths, j:GetFullName()) end
+	local paths = table_create(#joints)
+	for i, j in ipairs(joints) do paths[i] = j:GetFullName() end
 	return paths
 end
 
@@ -154,29 +169,40 @@ end
 -- Raycasting
 local function createRaycastParams(p)
 	local params = RaycastParams.new()
-	if p.filterDescendants then
-		local instances = {}
-		for _, path in ipairs(p.filterDescendants) do
+	local filterDescendants = p.filterDescendants
+	if filterDescendants then
+		local numFilters = #filterDescendants
+		local instances = table_create(numFilters)
+		local idx = 0
+		for _, path in ipairs(filterDescendants) do
 			local obj = Path.resolve(path)
-			if obj then table.insert(instances, obj) end
+			if obj then
+				idx = idx + 1
+				instances[idx] = obj
+			end
 		end
 		params.FilterDescendantsInstances = instances
 	end
-	if p.filterType then
-		params.FilterType = Enum.RaycastFilterType[p.filterType] or Enum.RaycastFilterType.Exclude
+	local filterType = p.filterType
+	if filterType then
+		params.FilterType = Enum.RaycastFilterType[filterType] or Enum.RaycastFilterType.Exclude
 	end
 	return params
 end
 
 function Tools.Raycast(p)
-	local origin = Vector3.new(p.origin[1], p.origin[2], p.origin[3])
-	local direction = Vector3.new(p.direction[1], p.direction[2], p.direction[3])
+	local originData = p.origin
+	local directionData = p.direction
+	local origin = Vector3_new(originData[1], originData[2], originData[3])
+	local direction = Vector3_new(directionData[1], directionData[2], directionData[3])
 	local result = workspace:Raycast(origin, direction, createRaycastParams(p))
 	if not result then return nil end
+	local resultPos = result.Position
+	local resultNormal = result.Normal
 	return {
 		instance = result.Instance:GetFullName(),
-		position = { result.Position.X, result.Position.Y, result.Position.Z },
-		normal = { result.Normal.X, result.Normal.Y, result.Normal.Z },
+		position = { resultPos.X, resultPos.Y, resultPos.Z },
+		normal = { resultNormal.X, resultNormal.Y, resultNormal.Z },
 		material = tostring(result.Material),
 		distance = result.Distance,
 	}
@@ -204,100 +230,107 @@ end
 
 -- Advanced Spatial Queries
 function Tools.Spherecast(p)
-	local pos = Vector3.new(p.position[1], p.position[2], p.position[3])
-	local direction = Vector3.new(p.direction[1], p.direction[2], p.direction[3])
+	local posData = p.position
+	local dirData = p.direction
+	local pos = Vector3_new(posData[1], posData[2], posData[3])
+	local direction = Vector3_new(dirData[1], dirData[2], dirData[3])
 	local result = workspace:Spherecast(pos, p.radius, direction, createRaycastParams(p))
 	if not result then return nil end
+	local resultPos = result.Position
+	local resultNormal = result.Normal
 	return {
 		instance = result.Instance:GetFullName(),
-		position = { result.Position.X, result.Position.Y, result.Position.Z },
-		normal = { result.Normal.X, result.Normal.Y, result.Normal.Z },
+		position = { resultPos.X, resultPos.Y, resultPos.Z },
+		normal = { resultNormal.X, resultNormal.Y, resultNormal.Z },
 		distance = result.Distance,
 	}
 end
 
 function Tools.Blockcast(p)
-	local cframe = CFrame.new(p.position[1], p.position[2], p.position[3])
-	local size = Vector3.new(p.size[1], p.size[2], p.size[3])
-	local direction = Vector3.new(p.direction[1], p.direction[2], p.direction[3])
+	local posData = p.position
+	local sizeData = p.size
+	local dirData = p.direction
+	local cframe = CFrame_new(posData[1], posData[2], posData[3])
+	local size = Vector3_new(sizeData[1], sizeData[2], sizeData[3])
+	local direction = Vector3_new(dirData[1], dirData[2], dirData[3])
 	local result = workspace:Blockcast(cframe, size, direction, createRaycastParams(p))
 	if not result then return nil end
+	local resultPos = result.Position
+	local resultNormal = result.Normal
 	return {
 		instance = result.Instance:GetFullName(),
-		position = { result.Position.X, result.Position.Y, result.Position.Z },
-		normal = { result.Normal.X, result.Normal.Y, result.Normal.Z },
+		position = { resultPos.X, resultPos.Y, resultPos.Z },
+		normal = { resultNormal.X, resultNormal.Y, resultNormal.Z },
 		distance = result.Distance,
 	}
 end
 
-function Tools.GetPartsInPart(p)
-	local part = Path.requireBasePart(p.path)
+-- Helper for overlap params (avoids repeated code)
+local function createOverlapParams(filterDescendants, filterType)
 	local params = OverlapParams.new()
-	if p.filterDescendants then
-		local instances = {}
-		for _, path in ipairs(p.filterDescendants) do
+	if filterDescendants then
+		local numFilters = #filterDescendants
+		local instances = table_create(numFilters)
+		local idx = 0
+		for _, path in ipairs(filterDescendants) do
 			local obj = Path.resolve(path)
-			if obj then table.insert(instances, obj) end
+			if obj then
+				idx = idx + 1
+				instances[idx] = obj
+			end
 		end
 		params.FilterDescendantsInstances = instances
 	end
-	if p.filterType then
-		params.FilterType = Enum.RaycastFilterType[p.filterType] or Enum.RaycastFilterType.Exclude
+	if filterType then
+		params.FilterType = Enum.RaycastFilterType[filterType] or Enum.RaycastFilterType.Exclude
 	end
+	return params
+end
+
+function Tools.GetPartsInPart(p)
+	local part = Path.requireBasePart(p.path)
+	local params = createOverlapParams(p.filterDescendants, p.filterType)
 	local parts = workspace:GetPartsInPart(part, params)
-	local paths = {}
-	for _, p in pairs(parts) do table.insert(paths, p:GetFullName()) end
+	local paths = table_create(#parts)
+	for i, partObj in ipairs(parts) do paths[i] = partObj:GetFullName() end
 	return paths
 end
 
 function Tools.GetPartBoundsInRadius(p)
-	local pos = Vector3.new(p.position[1], p.position[2], p.position[3])
-	local params = OverlapParams.new()
-	if p.filterDescendants then
-		local instances = {}
-		for _, path in ipairs(p.filterDescendants) do
-			local obj = Path.resolve(path)
-			if obj then table.insert(instances, obj) end
-		end
-		params.FilterDescendantsInstances = instances
-	end
+	local position = p.position
+	local pos = Vector3_new(position[1], position[2], position[3])
+	local params = createOverlapParams(p.filterDescendants, nil)
 	local parts = workspace:GetPartBoundsInRadius(pos, p.radius, params)
-	local paths = {}
-	for _, part in pairs(parts) do table.insert(paths, part:GetFullName()) end
+	local paths = table_create(#parts)
+	for i, part in ipairs(parts) do paths[i] = part:GetFullName() end
 	return paths
 end
 
 function Tools.GetPartBoundsInBox(p)
-	local cframe = CFrame.new(p.position[1], p.position[2], p.position[3])
-	local size = Vector3.new(p.size[1], p.size[2], p.size[3])
-	local params = OverlapParams.new()
-	if p.filterDescendants then
-		local instances = {}
-		for _, path in ipairs(p.filterDescendants) do
-			local obj = Path.resolve(path)
-			if obj then table.insert(instances, obj) end
-		end
-		params.FilterDescendantsInstances = instances
-	end
+	local position = p.position
+	local sizeData = p.size
+	local cframe = CFrame_new(position[1], position[2], position[3])
+	local size = Vector3_new(sizeData[1], sizeData[2], sizeData[3])
+	local params = createOverlapParams(p.filterDescendants, nil)
 	local parts = workspace:GetPartBoundsInBox(cframe, size, params)
-	local paths = {}
-	for _, part in pairs(parts) do table.insert(paths, part:GetFullName()) end
+	local paths = table_create(#parts)
+	for i, part in ipairs(parts) do paths[i] = part:GetFullName() end
 	return paths
 end
 
 function Tools.GetTouchingParts(p)
 	local part = Path.requireBasePart(p.path)
 	local touching = part:GetTouchingParts()
-	local paths = {}
-	for _, t in pairs(touching) do table.insert(paths, t:GetFullName()) end
+	local paths = table_create(#touching)
+	for i, t in ipairs(touching) do paths[i] = t:GetFullName() end
 	return paths
 end
 
 function Tools.GetConnectedParts(p)
 	local part = Path.requireBasePart(p.path)
 	local connected = part:GetConnectedParts(p.recursive or false)
-	local paths = {}
-	for _, c in pairs(connected) do table.insert(paths, c:GetFullName()) end
+	local paths = table_create(#connected)
+	for i, c in ipairs(connected) do paths[i] = c:GetFullName() end
 	return paths
 end
 
@@ -306,11 +339,13 @@ function Tools.CreateAttachment(p)
 	local parent = Path.requireBasePart(p.parentPath)
 	local attachment = Instance.new("Attachment")
 	attachment.Name = p.name or "Attachment"
-	if p.position then
-		attachment.Position = Vector3.new(p.position[1], p.position[2], p.position[3])
+	local position = p.position
+	if position then
+		attachment.Position = Vector3_new(position[1], position[2], position[3])
 	end
-	if p.orientation then
-		attachment.Orientation = Vector3.new(p.orientation[1], p.orientation[2], p.orientation[3])
+	local orientation = p.orientation
+	if orientation then
+		attachment.Orientation = Vector3_new(orientation[1], orientation[2], orientation[3])
 	end
 	attachment.Parent = parent
 	return attachment:GetFullName()
@@ -325,7 +360,7 @@ end
 function Tools.SetAttachmentPosition(p)
 	local att = Path.require(p.path)
 	if not att:IsA("Attachment") then error("Not an Attachment: " .. p.path) end
-	att.Position = Vector3.new(p.x, p.y, p.z)
+	att.Position = Vector3_new(p.x, p.y, p.z)
 	return "Set"
 end
 
@@ -354,7 +389,7 @@ end
 
 function Tools.SetVelocity(p)
 	local part = Path.requireBasePart(p.path)
-	part.AssemblyLinearVelocity = Vector3.new(p.x, p.y, p.z)
+	part.AssemblyLinearVelocity = Vector3_new(p.x, p.y, p.z)
 	return "Set"
 end
 
@@ -366,7 +401,7 @@ end
 
 function Tools.SetAngularVelocity(p)
 	local part = Path.requireBasePart(p.path)
-	part.AssemblyAngularVelocity = Vector3.new(p.x, p.y, p.z)
+	part.AssemblyAngularVelocity = Vector3_new(p.x, p.y, p.z)
 	return "Set"
 end
 

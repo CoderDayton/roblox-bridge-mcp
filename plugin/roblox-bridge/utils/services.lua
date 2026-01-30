@@ -1,4 +1,6 @@
--- Cached service references
+--!optimize 2
+-- Cached service references (pre-loaded at module init for performance)
+local game_GetService = game.GetService
 return {
 	ChangeHistoryService = game:GetService("ChangeHistoryService"),
 	CollectionService = game:GetService("CollectionService"),

@@ -1,4 +1,16 @@
+--!optimize 2
 -- Sandboxed execution environment
+
+-- Localize globals for performance
+local table_insert = table.insert
+local table_concat = table.concat
+local table_remove = table.remove
+local tostring = tostring
+local select = select
+local pcall = pcall
+local setfenv = setfenv
+local loadstring = loadstring
+
 local Sandbox = {}
 
 function Sandbox.createEnv(logs)
@@ -9,15 +21,17 @@ function Sandbox.createEnv(logs)
 		Region3 = Region3, BrickColor = BrickColor, NumberRange = NumberRange,
 		NumberSequence = NumberSequence, ColorSequence = ColorSequence,
 		print = function(...)
-			local parts = {}
-			for i = 1, select("#", ...) do parts[i] = tostring(select(i, ...)) end
-			table.insert(logs, table.concat(parts, " "))
+			local count = select("#", ...)
+			local parts = table.create(count)
+			for i = 1, count do parts[i] = tostring(select(i, ...)) end
+			table_insert(logs, table_concat(parts, " "))
 			print(...)
 		end,
 		warn = function(...)
-			local parts = {}
-			for i = 1, select("#", ...) do parts[i] = tostring(select(i, ...)) end
-			table.insert(logs, "WARN: " .. table.concat(parts, " "))
+			local count = select("#", ...)
+			local parts = table.create(count)
+			for i = 1, count do parts[i] = tostring(select(i, ...)) end
+			table_insert(logs, "WARN: " .. table_concat(parts, " "))
 			warn(...)
 		end,
 		error = error, assert = assert, type = type, typeof = typeof,
@@ -25,7 +39,7 @@ function Sandbox.createEnv(logs)
 		next = next, select = select, unpack = unpack, pcall = pcall, xpcall = xpcall,
 		math = math, string = string, table = table, coroutine = coroutine,
 		os = { time = os.time, clock = os.clock, date = os.date, difftime = os.difftime },
-		task = task, wait = wait, delay = delay, spawn = spawn,
+		task = task, wait = task.wait, delay = task.delay, spawn = task.spawn,
 	}
 end
 
@@ -37,18 +51,19 @@ function Sandbox.execute(code)
 	setfenv(func, Sandbox.createEnv(logs))
 
 	local results = { pcall(func) }
-	local success = table.remove(results, 1)
-	local output = table.concat(logs, "\n")
+	local success = table_remove(results, 1)
+	local output = table_concat(logs, "\n")
 
 	if not success then
 		error(output .. "\nRuntime error: " .. tostring(results[1]))
 	end
 
 	local returnStr = ""
-	if #results > 0 then
-		local strResults = {}
-		for _, v in pairs(results) do table.insert(strResults, tostring(v)) end
-		returnStr = "Returned: " .. table.concat(strResults, ", ")
+	local numResults = #results
+	if numResults > 0 then
+		local strResults = table.create(numResults)
+		for i, v in ipairs(results) do strResults[i] = tostring(v) end
+		returnStr = "Returned: " .. table_concat(strResults, ", ")
 	end
 
 	if output == "" and returnStr == "" then return "Executed (no output)" end

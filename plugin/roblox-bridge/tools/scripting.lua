@@ -1,3 +1,4 @@
+--!optimize 2
 --------------------------------------------------------------------------------
 -- Scripting Tools
 -- Provides methods for script creation, source code manipulation, and execution.
@@ -10,6 +11,15 @@
 --
 -- Note: RunConsoleCommand executes in a sandboxed environment with limited API access.
 --------------------------------------------------------------------------------
+
+-- Localize globals for performance
+local table_insert = table.insert
+local table_concat = table.concat
+local table_create = table.create
+local string_split = string.split
+local math_clamp = math.clamp
+local ipairs = ipairs
+
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 local Sandbox = require(script.Parent.Parent.utils.sandbox)
@@ -44,26 +54,58 @@ end
 
 function Tools.ReplaceScriptLines(p)
 	local obj = Path.requireScript(p.path)
-	local lines = string.split(obj.Source, "\n")
-	local newLines = {}
-	local contentLines = string.split(p.content, "\n")
-	for i = 1, p.startLine - 1 do if lines[i] then table.insert(newLines, lines[i]) end end
-	for _, line in pairs(contentLines) do table.insert(newLines, line) end
-	for i = p.endLine + 1, #lines do table.insert(newLines, lines[i]) end
-	obj.Source = table.concat(newLines, "\n")
+	local lines = string_split(obj.Source, "\n")
+	local contentLines = string_split(p.content, "\n")
+	local startLine = p.startLine
+	local endLine = p.endLine
+	local numLines = #lines
+
+	-- Estimate new size: (startLine-1) + contentLines + (numLines - endLine)
+	local estimatedSize = (startLine - 1) + #contentLines + (numLines - endLine)
+	local newLines = table_create(estimatedSize > 0 and estimatedSize or 1)
+	local idx = 0
+
+	for i = 1, startLine - 1 do
+		if lines[i] then
+			idx = idx + 1
+			newLines[idx] = lines[i]
+		end
+	end
+	for _, line in ipairs(contentLines) do
+		idx = idx + 1
+		newLines[idx] = line
+	end
+	for i = endLine + 1, numLines do
+		idx = idx + 1
+		newLines[idx] = lines[i]
+	end
+	obj.Source = table_concat(newLines, "\n")
 	return "Replaced"
 end
 
 function Tools.InsertScriptLines(p)
 	local obj = Path.requireScript(p.path)
-	local lines = string.split(obj.Source, "\n")
-	local contentLines = string.split(p.content, "\n")
-	local newLines = {}
-	local insertAt = math.clamp(p.lineNumber, 1, #lines + 1)
-	for i = 1, insertAt - 1 do table.insert(newLines, lines[i]) end
-	for _, line in pairs(contentLines) do table.insert(newLines, line) end
-	for i = insertAt, #lines do table.insert(newLines, lines[i]) end
-	obj.Source = table.concat(newLines, "\n")
+	local lines = string_split(obj.Source, "\n")
+	local contentLines = string_split(p.content, "\n")
+	local numLines = #lines
+	local insertAt = math_clamp(p.lineNumber, 1, numLines + 1)
+
+	local newLines = table_create(numLines + #contentLines)
+	local idx = 0
+
+	for i = 1, insertAt - 1 do
+		idx = idx + 1
+		newLines[idx] = lines[i]
+	end
+	for _, line in ipairs(contentLines) do
+		idx = idx + 1
+		newLines[idx] = line
+	end
+	for i = insertAt, numLines do
+		idx = idx + 1
+		newLines[idx] = lines[i]
+	end
+	obj.Source = table_concat(newLines, "\n")
 	return "Inserted"
 end
 

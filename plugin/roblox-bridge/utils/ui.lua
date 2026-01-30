@@ -1,5 +1,22 @@
+--!optimize 2
 -- UI Components and Widget Creation
+
+-- Localize globals for performance
+local pairs = pairs
+local ipairs = ipairs
+local next = next
+local tostring = tostring
+local os_time = os.time
+local os_date = os.date
+local math_floor = math.floor
+local table_insert = table.insert
+local table_remove = table.remove
+local tick = tick
+
 local Services = require(script.Parent.services)
+
+-- Cache TweenService for frequent use
+local TweenService = Services.TweenService
 
 local UI = {}
 
@@ -68,14 +85,14 @@ function UI.createStore(initialState)
 			end
 		end
 		if next(changed) then
-			for _, listener in pairs(listeners) do listener(changed, state) end
+			for _, listener in ipairs(listeners) do listener(changed, state) end
 		end
 	end
 	function store:subscribe(listener)
-		table.insert(listeners, listener)
+		table_insert(listeners, listener)
 		return function()
-			for i, l in pairs(listeners) do
-				if l == listener then table.remove(listeners, i) break end
+			for i, l in ipairs(listeners) do
+				if l == listener then table_remove(listeners, i) break end
 			end
 		end
 	end
@@ -131,26 +148,30 @@ function UI.createButton(pluginRef, props)
 	local hoverColor = primary and UI.COLORS.primaryHover or UI.COLORS.btnHover
 	local activeColor = primary and UI.COLORS.primaryActive or UI.COLORS.btnActive
 
+	-- Cache tween info for reuse
+	local tweenInfo = UI.TWEENS.info
+	local tweenFast = UI.TWEENS.fast
+
 	btn.MouseEnter:Connect(function()
 		pluginRef:GetMouse().Icon = "rbxasset://SystemCursors/PointingHand"
-		Services.TweenService:Create(btn, UI.TWEENS.info, { BackgroundColor3 = hoverColor }):Play()
+		TweenService:Create(btn, tweenInfo, { BackgroundColor3 = hoverColor }):Play()
 	end)
 
 	btn.MouseLeave:Connect(function()
 		pluginRef:GetMouse().Icon = ""
-		Services.TweenService:Create(btn, UI.TWEENS.info, { BackgroundColor3 = baseColor }):Play()
-		Services.TweenService:Create(btn, UI.TWEENS.info, { Position = UDim2.new(0, 0, 0, 0) }):Play()
-		Services.TweenService:Create(shadow, UI.TWEENS.info, { Position = UDim2.new(0, 0, 0, 3), BackgroundTransparency = 0.85 }):Play()
+		TweenService:Create(btn, tweenInfo, { BackgroundColor3 = baseColor }):Play()
+		TweenService:Create(btn, tweenInfo, { Position = UDim2.new(0, 0, 0, 0) }):Play()
+		TweenService:Create(shadow, tweenInfo, { Position = UDim2.new(0, 0, 0, 3), BackgroundTransparency = 0.85 }):Play()
 	end)
 
 	btn.MouseButton1Down:Connect(function()
-		Services.TweenService:Create(btn, UI.TWEENS.fast, { BackgroundColor3 = activeColor, Position = UDim2.new(0, 0, 0, 2) }):Play()
-		Services.TweenService:Create(shadow, UI.TWEENS.fast, { Position = UDim2.new(0, 0, 0, 1), BackgroundTransparency = 0.92 }):Play()
+		TweenService:Create(btn, tweenFast, { BackgroundColor3 = activeColor, Position = UDim2.new(0, 0, 0, 2) }):Play()
+		TweenService:Create(shadow, tweenFast, { Position = UDim2.new(0, 0, 0, 1), BackgroundTransparency = 0.92 }):Play()
 	end)
 
 	btn.MouseButton1Up:Connect(function()
-		Services.TweenService:Create(btn, UI.TWEENS.info, { BackgroundColor3 = hoverColor, Position = UDim2.new(0, 0, 0, 0) }):Play()
-		Services.TweenService:Create(shadow, UI.TWEENS.info, { Position = UDim2.new(0, 0, 0, 3), BackgroundTransparency = 0.85 }):Play()
+		TweenService:Create(btn, tweenInfo, { BackgroundColor3 = hoverColor, Position = UDim2.new(0, 0, 0, 0) }):Play()
+		TweenService:Create(shadow, tweenInfo, { Position = UDim2.new(0, 0, 0, 3), BackgroundTransparency = 0.85 }):Play()
 		onClick()
 	end)
 
@@ -162,9 +183,13 @@ end
 --------------------------------------------------------------------------------
 
 function UI.createWidget(pluginRef, props)
-	local startTime = os.time()
+	local startTime = os_time()
 	local version = props.version or "1.0.0"
 	local entryCount = 0
+
+	-- Cache tween info for reuse throughout widget
+	local tweenSlow = UI.TWEENS.slow
+	local tweenMedium = UI.TWEENS.medium
 
 	local widgetInfo = DockWidgetPluginGuiInfo.new(
 		Enum.InitialDockState.Right, false, false, 320, 500, 280, 400
@@ -305,9 +330,9 @@ function UI.createWidget(pluginRef, props)
 	uiStore:subscribe(function(changed, state)
 		if changed.connected ~= nil then
 			local color = state.connected and UI.COLORS.connected or UI.COLORS.disconnected
-			Services.TweenService:Create(indicator, UI.TWEENS.slow, { BackgroundColor3 = color }):Play()
+			TweenService:Create(indicator, tweenSlow, { BackgroundColor3 = color }):Play()
 			metrics["Status"].Text = state.connected and "Connected" or "Disconnected"
-			Services.TweenService:Create(metrics["Status"], UI.TWEENS.slow, { TextColor3 = color }):Play()
+			TweenService:Create(metrics["Status"], tweenSlow, { TextColor3 = color }):Play()
 		end
 		if changed.host then metrics["Host"].Text = state.host end
 		if changed.port then metrics["Port"].Text = tostring(state.port) end
@@ -317,9 +342,9 @@ function UI.createWidget(pluginRef, props)
 
 	Services.RunService.Heartbeat:Connect(function()
 		local elapsed = tick() - startTime
-		local h = math.floor(elapsed / 3600)
-		local m = math.floor((elapsed % 3600) / 60)
-		local s = math.floor(elapsed % 60)
+		local h = math_floor(elapsed / 3600)
+		local m = math_floor((elapsed % 3600) / 60)
+		local s = math_floor(elapsed % 60)
 		metrics["Uptime"].Text = string.format("%02d:%02d:%02d", h, m, s)
 	end)
 
@@ -429,7 +454,7 @@ function UI.createWidget(pluginRef, props)
 	end
 
 	function api.addCommand(method, success)
-		local timestamp = os.date("%H:%M:%S")
+		local timestamp = os_date("%H:%M:%S")
 
 		local entry = Instance.new("Frame")
 		entry.Name = "Entry" .. entryCount
@@ -478,23 +503,23 @@ function UI.createWidget(pluginRef, props)
 
 		entry.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseMovement then
-				Services.TweenService:Create(entry, UI.TWEENS.medium, { BackgroundColor3 = UI.COLORS.entryBgHover, BackgroundTransparency = 0 }):Play()
+				TweenService:Create(entry, tweenMedium, { BackgroundColor3 = UI.COLORS.entryBgHover, BackgroundTransparency = 0 }):Play()
 			end
 		end)
 
 		entry.InputEnded:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseMovement then
-				Services.TweenService:Create(entry, UI.TWEENS.medium, { BackgroundTransparency = 1 }):Play()
+				TweenService:Create(entry, tweenMedium, { BackgroundTransparency = 1 }):Play()
 			end
 		end)
 
-		table.insert(historyList, 1, entry)
+		table_insert(historyList, 1, entry)
 		entry.LayoutOrder = -entryCount
 		entry.Parent = scrollFrame
 		entryCount = entryCount + 1
 
 		while #historyList > 100 do
-			local old = table.remove(historyList)
+			local old = table_remove(historyList)
 			if old then old:Destroy() end
 		end
 
@@ -509,9 +534,9 @@ function UI.createWidget(pluginRef, props)
 
 	task.spawn(function()
 		while true do
-			local elapsed = os.time() - startTime
-			local h = math.floor(elapsed / 3600)
-			local m = math.floor((elapsed % 3600) / 60)
+			local elapsed = os_time() - startTime
+			local h = math_floor(elapsed / 3600)
+			local m = math_floor((elapsed % 3600) / 60)
 			local s = elapsed % 60
 			uiStore:set({ uptime = string.format("%02d:%02d:%02d", h, m, s) })
 			task.wait(1)

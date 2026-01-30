@@ -20,26 +20,42 @@ function parseNumber(value: string | undefined, defaultValue: number): number {
 }
 
 /**
+ * Cache server version parts at module load for faster comparison.
+ * Avoids repeated string splits in isVersionCompatible().
+ */
+const SERVER_VERSION = "1.1.0" as const;
+const firstDot = SERVER_VERSION.indexOf(".");
+const secondDot = SERVER_VERSION.indexOf(".", firstDot + 1);
+const SERVER_MAJOR = SERVER_VERSION.substring(0, firstDot);
+const SERVER_MINOR = SERVER_VERSION.substring(firstDot + 1, secondDot);
+
+/**
  * Check if a plugin version is compatible with the server version.
  * Versions are compatible if major.minor match (patch can differ).
+ *
+ * Optimized to avoid string splits by using indexOf/substring.
+ *
  * @param pluginVersion - Version string from the plugin (e.g., "1.1.0")
  * @returns true if compatible, false otherwise
  */
 export function isVersionCompatible(pluginVersion: string): boolean {
-  const serverParts = config.version.split(".");
-  const pluginParts = pluginVersion.split(".");
+  // Find version separators
+  const firstDotIdx = pluginVersion.indexOf(".");
+  if (firstDotIdx === -1) return false;
 
-  // Must have at least major.minor
-  if (serverParts.length < 2 || pluginParts.length < 2) {
-    return false;
-  }
+  const secondDotIdx = pluginVersion.indexOf(".", firstDotIdx + 1);
+  if (secondDotIdx === -1) return false;
 
-  // Major and minor must match
-  return serverParts[0] === pluginParts[0] && serverParts[1] === pluginParts[1];
+  // Extract major and minor (patch is ignored)
+  const major = pluginVersion.substring(0, firstDotIdx);
+  const minor = pluginVersion.substring(firstDotIdx + 1, secondDotIdx);
+
+  // Compare with cached server version parts
+  return major === SERVER_MAJOR && minor === SERVER_MINOR;
 }
 
 export const config: Config = {
-  version: "1.1.0",
+  version: SERVER_VERSION,
   bridgePort: parseNumber(process.env.ROBLOX_BRIDGE_PORT, 62847),
   timeout: parseNumber(process.env.ROBLOX_TIMEOUT_MS, 30_000),
   retries: parseNumber(process.env.ROBLOX_RETRIES, 2),

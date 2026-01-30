@@ -1,3 +1,4 @@
+--!optimize 2
 --------------------------------------------------------------------------------
 -- Visual & Environment Tools
 -- Provides methods for appearance, lighting, atmosphere, particles, and GUI.
@@ -11,6 +12,13 @@
 --   Materials: ApplyDecal, ApplyTexture
 --   GUI: CreateGuiElement, SetGuiText, SetGuiSize, SetGuiPosition, SetGuiVisible, DestroyGuiElement
 --------------------------------------------------------------------------------
+
+-- Localize globals for performance
+local pairs = pairs
+local pcall = pcall
+local tostring = tostring
+local Color3_fromRGB = Color3.fromRGB
+
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 
@@ -19,7 +27,7 @@ local Tools = {}
 -- Appearance
 function Tools.SetColor(p)
 	local obj = Path.require(p.path)
-	local color = Color3.fromRGB(p.r, p.g, p.b)
+	local color = Color3_fromRGB(p.r, p.g, p.b)
 	if obj:IsA("BasePart") or obj:IsA("Light") then obj.Color = color
 	else error("Cannot set color: unsupported type") end
 	return "Set"
@@ -64,19 +72,21 @@ function Tools.CreateLight(p)
 	local parent = Path.require(p.parentPath)
 	local light = Instance.new(p.type)
 	if p.brightness then light.Brightness = p.brightness end
-	if p.color then light.Color = Color3.fromRGB(p.color[1], p.color[2], p.color[3]) end
+	local color = p.color
+	if color then light.Color = Color3_fromRGB(color[1], color[2], color[3]) end
 	light.Parent = parent
 	return light:GetFullName()
 end
 
 -- Environment
 function Tools.SetAtmosphereColor(p)
-	local atmo = Services.Lighting:FindFirstChildOfClass("Atmosphere")
+	local lighting = Services.Lighting
+	local atmo = lighting:FindFirstChildOfClass("Atmosphere")
 	if not atmo then
 		atmo = Instance.new("Atmosphere")
-		atmo.Parent = Services.Lighting
+		atmo.Parent = lighting
 	end
-	atmo.Color = Color3.fromRGB(p.r, p.g, p.b)
+	atmo.Color = Color3_fromRGB(p.r, p.g, p.b)
 	if p.haze then atmo.Haze = p.haze end
 	return "Set"
 end
@@ -87,10 +97,12 @@ function Tools.SetGlobalShadows(p)
 end
 
 function Tools.SetFog(p)
-	Services.Lighting.FogStart = p.start or 0
-	Services.Lighting.FogEnd = p.fogEnd or 100000
-	if p.color then
-		Services.Lighting.FogColor = Color3.fromRGB(p.color[1], p.color[2], p.color[3])
+	local lighting = Services.Lighting
+	lighting.FogStart = p.start or 0
+	lighting.FogEnd = p.fogEnd or 100000
+	local color = p.color
+	if color then
+		lighting.FogColor = Color3_fromRGB(color[1], color[2], color[3])
 	end
 	return "Set"
 end
@@ -101,7 +113,8 @@ function Tools.CreateClouds(p)
 	local clouds = Instance.new("Clouds")
 	if p.cover then clouds.Cover = p.cover end
 	if p.density then clouds.Density = p.density end
-	if p.color then clouds.Color = Color3.fromRGB(p.color[1], p.color[2], p.color[3]) end
+	local color = p.color
+	if color then clouds.Color = Color3_fromRGB(color[1], color[2], color[3]) end
 	clouds.Parent = workspace.Terrain
 	return clouds:GetFullName()
 end
@@ -131,7 +144,8 @@ function Tools.CreateBeam(p)
 	end
 	local beam = Instance.new("Beam")
 	beam.Attachment0, beam.Attachment1 = att0, att1
-	if p.color then beam.Color = ColorSequence.new(Color3.fromRGB(p.color[1], p.color[2], p.color[3])) end
+	local color = p.color
+	if color then beam.Color = ColorSequence.new(Color3_fromRGB(color[1], color[2], color[3])) end
 	if p.width0 then beam.Width0 = p.width0 end
 	if p.width1 then beam.Width1 = p.width1 end
 	if p.segments then beam.Segments = p.segments end
@@ -148,7 +162,8 @@ function Tools.CreateTrail(p)
 	local trail = Instance.new("Trail")
 	trail.Attachment0, trail.Attachment1 = att0, att1
 	if p.lifetime then trail.Lifetime = p.lifetime end
-	if p.color then trail.Color = ColorSequence.new(Color3.fromRGB(p.color[1], p.color[2], p.color[3])) end
+	local color = p.color
+	if color then trail.Color = ColorSequence.new(Color3_fromRGB(color[1], color[2], color[3])) end
 	if p.widthScale then trail.WidthScale = NumberSequence.new(p.widthScale) end
 	trail.Parent = att0.Parent
 	return trail:GetFullName()
@@ -157,8 +172,9 @@ end
 function Tools.HighlightObject(p)
 	local obj = Path.require(p.path)
 	local hl = Instance.new("Highlight")
-	if p.color then
-		hl.FillColor = Color3.fromRGB(p.color[1], p.color[2], p.color[3])
+	local color = p.color
+	if color then
+		hl.FillColor = Color3_fromRGB(color[1], color[2], color[3])
 	end
 	hl.Parent = obj
 	if p.duration then Services.Debris:AddItem(hl, p.duration) end

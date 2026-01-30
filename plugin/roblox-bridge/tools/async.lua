@@ -1,3 +1,4 @@
+--!optimize 2
 --------------------------------------------------------------------------------
 -- Async & Service Tools
 -- Provides methods for audio, tweening, networking, data storage, and marketplace.
@@ -13,6 +14,15 @@
 -- Note: DataStore operations require API access to be enabled in Studio settings.
 -- Note: Tweens are stored in memory and referenced by tweenId.
 --------------------------------------------------------------------------------
+
+-- Localize globals for performance
+local pairs = pairs
+local ipairs = ipairs
+local pcall = pcall
+local tostring = tostring
+local tick = tick
+local unpack = unpack
+
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 
@@ -170,7 +180,8 @@ function Tools.InsertAsset(p)
 	end)
 	if not ok then error("Failed to insert asset: " .. tostring(model)) end
 	local parent = p.parentPath and Path.require(p.parentPath) or workspace
-	for _, child in pairs(model:GetChildren()) do
+	local children = model:GetChildren()
+	for _, child in ipairs(children) do
 		child.Parent = parent
 	end
 	model:Destroy()

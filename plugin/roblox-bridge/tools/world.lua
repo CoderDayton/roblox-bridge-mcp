@@ -1,3 +1,4 @@
+--!optimize 2
 --------------------------------------------------------------------------------
 -- World & Environment Tools
 -- Provides methods for terrain, camera, history, place info, attributes, and tags.
@@ -17,6 +18,17 @@
 --   RunService: IsStudio, IsRunMode, IsEdit, IsRunning
 --   Workspace: GetServerTimeNow, GetRealPhysicsFPS, Chat
 --------------------------------------------------------------------------------
+
+-- Localize globals for performance
+local table_insert = table.insert
+local table_create = table.create
+local pairs = pairs
+local ipairs = ipairs
+local tostring = tostring
+local Vector3_new = Vector3.new
+local CFrame_new = CFrame.new
+local CFrame_lookAt = CFrame.lookAt
+
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 
@@ -34,8 +46,10 @@ function Tools.GetTerrainInfo()
 end
 
 function Tools.FillTerrainRegion(p)
-	local min = Vector3.new(p.min[1], p.min[2], p.min[3])
-	local max = Vector3.new(p.max[1], p.max[2], p.max[3])
+	local minData = p.min
+	local maxData = p.max
+	local min = Vector3_new(minData[1], minData[2], minData[3])
+	local max = Vector3_new(maxData[1], maxData[2], maxData[3])
 	local material = Enum.Material[p.material]
 	if not material then error("Invalid material: " .. p.material) end
 	workspace.Terrain:FillRegion(Region3.new(min, max):ExpandToGrid(4), 4, material)
@@ -48,7 +62,8 @@ function Tools.ClearTerrain()
 end
 
 function Tools.FillBall(p)
-	local center = Vector3.new(p.center[1], p.center[2], p.center[3])
+	local centerData = p.center
+	local center = Vector3_new(centerData[1], centerData[2], centerData[3])
 	local material = Enum.Material[p.material]
 	if not material then error("Invalid material: " .. p.material) end
 	workspace.Terrain:FillBall(center, p.radius, material)
@@ -56,8 +71,10 @@ function Tools.FillBall(p)
 end
 
 function Tools.FillBlock(p)
-	local cframe = CFrame.new(p.position[1], p.position[2], p.position[3])
-	local size = Vector3.new(p.size[1], p.size[2], p.size[3])
+	local posData = p.position
+	local sizeData = p.size
+	local cframe = CFrame_new(posData[1], posData[2], posData[3])
+	local size = Vector3_new(sizeData[1], sizeData[2], sizeData[3])
 	local material = Enum.Material[p.material]
 	if not material then error("Invalid material: " .. p.material) end
 	workspace.Terrain:FillBlock(cframe, size, material)
@@ -65,7 +82,8 @@ function Tools.FillBlock(p)
 end
 
 function Tools.FillCylinder(p)
-	local cframe = CFrame.new(p.position[1], p.position[2], p.position[3])
+	local posData = p.position
+	local cframe = CFrame_new(posData[1], posData[2], posData[3])
 	local material = Enum.Material[p.material]
 	if not material then error("Invalid material: " .. p.material) end
 	workspace.Terrain:FillCylinder(cframe, p.height, p.radius, material)
@@ -73,8 +91,10 @@ function Tools.FillCylinder(p)
 end
 
 function Tools.FillWedge(p)
-	local cframe = CFrame.new(p.position[1], p.position[2], p.position[3])
-	local size = Vector3.new(p.size[1], p.size[2], p.size[3])
+	local posData = p.position
+	local sizeData = p.size
+	local cframe = CFrame_new(posData[1], posData[2], posData[3])
+	local size = Vector3_new(sizeData[1], sizeData[2], sizeData[3])
 	local material = Enum.Material[p.material]
 	if not material then error("Invalid material: " .. p.material) end
 	workspace.Terrain:FillWedge(cframe, size, material)
@@ -82,8 +102,10 @@ function Tools.FillWedge(p)
 end
 
 function Tools.ReplaceMaterial(p)
-	local min = Vector3.new(p.min[1], p.min[2], p.min[3])
-	local max = Vector3.new(p.max[1], p.max[2], p.max[3])
+	local minData = p.min
+	local maxData = p.max
+	local min = Vector3_new(minData[1], minData[2], minData[3])
+	local max = Vector3_new(maxData[1], maxData[2], maxData[3])
 	local region = Region3.new(min, max):ExpandToGrid(4)
 	local sourceMaterial = Enum.Material[p.sourceMaterial]
 	local targetMaterial = Enum.Material[p.targetMaterial]
@@ -96,15 +118,15 @@ end
 -- Camera
 function Tools.SetCameraPosition(p)
 	local camera = workspace.CurrentCamera
-	camera.CFrame = CFrame.new(p.x, p.y, p.z) * camera.CFrame.Rotation
+	camera.CFrame = CFrame_new(p.x, p.y, p.z) * camera.CFrame.Rotation
 	return "Set"
 end
 
 function Tools.SetCameraTarget(p)
 	local camera = workspace.CurrentCamera
 	local pos = camera.CFrame.Position
-	local target = Vector3.new(p.x, p.y, p.z)
-	camera.CFrame = CFrame.lookAt(pos, target)
+	local target = Vector3_new(p.x, p.y, p.z)
+	camera.CFrame = CFrame_lookAt(pos, target)
 	return "Set"
 end
 
@@ -112,7 +134,7 @@ function Tools.SetCameraFocus(p)
 	local target = Path.require(p.path)
 	local pos = Path.getPosition(target)
 	local camera = workspace.CurrentCamera
-	camera.CFrame = CFrame.lookAt(camera.CFrame.Position, pos)
+	camera.CFrame = CFrame_lookAt(camera.CFrame.Position, pos)
 	return "Set"
 end
 
@@ -154,7 +176,7 @@ end
 
 function Tools.WorldToScreenPoint(p)
 	local camera = workspace.CurrentCamera
-	local pos = Vector3.new(p.x, p.y, p.z)
+	local pos = Vector3_new(p.x, p.y, p.z)
 	local screenPoint, onScreen = camera:WorldToScreenPoint(pos)
 	return {
 		position = { screenPoint.X, screenPoint.Y, screenPoint.Z },
@@ -164,7 +186,7 @@ end
 
 function Tools.WorldToViewportPoint(p)
 	local camera = workspace.CurrentCamera
-	local pos = Vector3.new(p.x, p.y, p.z)
+	local pos = Vector3_new(p.x, p.y, p.z)
 	local viewportPoint, onScreen = camera:WorldToViewportPoint(pos)
 	return {
 		position = { viewportPoint.X, viewportPoint.Y, viewportPoint.Z },
@@ -217,8 +239,10 @@ end
 
 -- Pathfinding
 function Tools.ComputePath(p)
-	local startPos = Vector3.new(p.start[1], p.start[2], p.start[3])
-	local endPos = Vector3.new(p.endPos[1], p.endPos[2], p.endPos[3])
+	local startData = p.start
+	local endData = p.endPos
+	local startPos = Vector3_new(startData[1], startData[2], startData[3])
+	local endPos = Vector3_new(endData[1], endData[2], endData[3])
 	local agentParams = {
 		AgentRadius = p.agentRadius or 2,
 		AgentHeight = p.agentHeight or 5,
@@ -230,12 +254,14 @@ function Tools.ComputePath(p)
 	if path.Status ~= Enum.PathStatus.Success then
 		return { status = tostring(path.Status), waypoints = {} }
 	end
-	local waypoints = {}
-	for _, wp in ipairs(path:GetWaypoints()) do
-		table.insert(waypoints, {
-			position = { wp.Position.X, wp.Position.Y, wp.Position.Z },
+	local waypointList = path:GetWaypoints()
+	local waypoints = table_create(#waypointList)
+	for i, wp in ipairs(waypointList) do
+		local wpPos = wp.Position
+		waypoints[i] = {
+			position = { wpPos.X, wpPos.Y, wpPos.Z },
 			action = tostring(wp.Action),
-		})
+		}
 	end
 	return { status = "Success", waypoints = waypoints }
 end
@@ -305,9 +331,10 @@ function Tools.GetTags(p)
 end
 
 function Tools.GetTagged(p)
-	local paths = {}
-	for _, obj in pairs(Services.CollectionService:GetTagged(p.tag)) do
-		table.insert(paths, obj:GetFullName())
+	local tagged = Services.CollectionService:GetTagged(p.tag)
+	local paths = table_create(#tagged)
+	for i, obj in ipairs(tagged) do
+		paths[i] = obj:GetFullName()
 	end
 	return paths
 end
@@ -331,7 +358,9 @@ end
 function Tools.FillTerrain(p)
 	local material = Enum.Material[p.material]
 	if not material then error("Invalid material: " .. p.material) end
-	workspace.Terrain:FillRegion(Region3.new(Vector3.new(p.minX, p.minY, p.minZ), Vector3.new(p.maxX, p.maxY, p.maxZ)), 4, material)
+	local min = Vector3_new(p.minX, p.minY, p.minZ)
+	local max = Vector3_new(p.maxX, p.maxY, p.maxZ)
+	workspace.Terrain:FillRegion(Region3.new(min, max), 4, material)
 	return "Filled"
 end
 

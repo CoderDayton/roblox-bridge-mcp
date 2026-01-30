@@ -1,3 +1,4 @@
+--!optimize 2
 --------------------------------------------------------------------------------
 -- Player, Character & Animation Tools
 -- Provides methods for player management, teams, leaderstats, and character control.
@@ -13,6 +14,16 @@
 --
 -- Note: Animation tracks are stored in memory and referenced by trackId.
 --------------------------------------------------------------------------------
+
+-- Localize globals for performance
+local table_insert = table.insert
+local table_create = table.create
+local pairs = pairs
+local ipairs = ipairs
+local tostring = tostring
+local pcall = pcall
+local tick = tick
+
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 
@@ -23,9 +34,10 @@ local animationTracks = {}
 
 -- Players
 function Tools.GetPlayers()
-	local names = {}
-	for _, player in pairs(Services.Players:GetPlayers()) do
-		table.insert(names, player.Name)
+	local players = Services.Players:GetPlayers()
+	local names = table_create(#players)
+	for i, player in ipairs(players) do
+		names[i] = player.Name
 	end
 	return names
 end
@@ -179,9 +191,9 @@ end
 function Tools.GetAccessories(p)
 	local humanoid = Path.requireHumanoid(p.humanoidPath)
 	local accessories = humanoid:GetAccessories()
-	local paths = {}
-	for _, acc in ipairs(accessories) do
-		table.insert(paths, acc:GetFullName())
+	local paths = table_create(#accessories)
+	for i, acc in ipairs(accessories) do
+		paths[i] = acc:GetFullName()
 	end
 	return paths
 end
@@ -226,7 +238,8 @@ end
 function Tools.TeleportPlayer(p)
 	local player = Services.Players:FindFirstChild(p.username)
 	if not player or not player.Character then error("Player or character not found") end
-	player.Character:MoveTo(Vector3.new(p.position[1], p.position[2], p.position[3]))
+	local position = p.position
+	player.Character:MoveTo(Vector3.new(position[1], position[2], position[3]))
 	return "Teleported"
 end
 

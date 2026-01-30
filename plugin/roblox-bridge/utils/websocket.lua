@@ -1,3 +1,4 @@
+--!optimize 2
 --------------------------------------------------------------------------------
 -- WebSocket Connection Manager
 -- Pure WebSocket communication with MCP server. No HTTP fallback.
@@ -9,7 +10,24 @@
 --   - Ping/pong keepalive
 --   - Clean disconnect handling
 --------------------------------------------------------------------------------
+
+-- Localize globals for performance
+local pairs = pairs
+local ipairs = ipairs
+local pcall = pcall
+local tick = tick
+local math_min = math.min
+local task_spawn = task.spawn
+local task_wait = task.wait
+local task_delay = task.delay
+local coroutine_wrap = coroutine.wrap
+
 local Services = require(script.Parent.services)
+
+-- Cache HttpService for JSON encoding/decoding
+local HttpService = Services.HttpService
+local JSONEncode = HttpService.JSONEncode
+local JSONDecode = HttpService.JSONDecode
 
 local WebSocket = {}
 
@@ -91,80 +109,80 @@ function WebSocket.create(config)
 
 		-- Message handler
 		wsClient.MessageReceived:Connect(function(message)
-			local ok, data = pcall(function()
-				return Services.HttpService:JSONDecode(message)
-			end)
+			local ok, data = pcall(JSONDecode, HttpService, message)
 
 			if not ok or not data then return end
 
+			local msgType = data.type
+
 			-- Server sends "connected" on WebSocket open
-			if data.type == "connected" then
+			if msgType == "connected" then
 				state.serverVersion = data.serverVersion
 				-- Send handshake with our version
-				local handshake = Services.HttpService:JSONEncode({
+				local handshake = JSONEncode(HttpService, {
 					type = "handshake",
 					version = config.VERSION
 				})
 				pcall(function() wsClient:Send(handshake) end)
 
 			-- Server confirms handshake
-			elseif data.type == "handshake_ok" then
+			elseif msgType == "handshake_ok" then
 				if not state.isConnected then
 					state.isConnected = true
 					isConnecting = false
 					state.retryInterval = config.RETRY_INTERVAL
-					task.spawn(function()
+					task_spawn(function()
 						callbacks.onConnected(config.BASE_PORT)
 					end)
 				end
 
 			-- Version mismatch error
-			elseif data.type == "error" then
+			elseif msgType == "error" then
 				if data.code == "VERSION_MISMATCH" then
 					warn("[MCP] Version mismatch! Plugin:", config.VERSION, "Server:", data.serverVersion or "unknown")
 				end
-				task.spawn(function()
+				task_spawn(function()
 					callbacks.onError(data.code, data.message)
 				end)
 
 			-- Batch of commands
-			elseif data.type == "commands" and data.data then
-				for _, cmd in ipairs(data.data) do
-					task.spawn(function()
-						callbacks.onCommand(cmd)
-					end)
+			elseif msgType == "commands" then
+				local cmdData = data.data
+				if cmdData then
+					local onCommand = callbacks.onCommand
+					for _, cmd in ipairs(cmdData) do
+						task_spawn(onCommand, cmd)
+					end
 				end
 
 			-- Single command
-			elseif data.type == "command" and data.data then
-				task.spawn(function()
-					callbacks.onCommand(data.data)
-				end)
+			elseif msgType == "command" then
+				local cmdData = data.data
+				if cmdData then
+					task_spawn(callbacks.onCommand, cmdData)
+				end
 
 			-- Pong response (keepalive)
-			elseif data.type == "pong" then
+			elseif msgType == "pong" then
 				state.lastPingTime = tick()
 			end
 		end)
 
 		-- Connection closed
 		wsClient.Closed:Connect(function()
-			local wasConnected = state.isConnected
 			state.isConnected = false
 			isConnecting = false
 			wsClient = nil
 
-			task.spawn(function()
-				callbacks.onDisconnected()
-			end)
+			task_spawn(callbacks.onDisconnected)
 
 			-- Schedule reconnect if still enabled
 			if state.isEnabled and not retryScheduled then
 				retryScheduled = true
-				task.delay(state.retryInterval, function()
+				task_delay(state.retryInterval, function()
 					retryScheduled = false
 					-- Exponential backoff
-					state.retryInterval = math.min(state.retryInterval * 1.5, config.MAX_RETRY_INTERVAL)
+					state.retryInterval = math_min(state.retryInterval * 1.5, config.MAX_RETRY_INTERVAL)
 					if state.isEnabled and not state.isConnected and not isConnecting then
 						connect()
 					end
@@ -195,20 +213,19 @@ function WebSocket.create(config)
 		state.isConnected = false
 		state.serverVersion = nil
 		isConnecting = false
-		task.spawn(function()
-			callbacks.onDisconnected()
-		end)
+		task_spawn(callbacks.onDisconnected)
 	end
 
 	--------------------------------------------------------------------------------
 	-- Send Result
 	--------------------------------------------------------------------------------
 	function manager.sendResult(id, success, result, err)
-		if not wsClient or not state.isConnected then
+		local client = wsClient
+		if not client or not state.isConnected then
 			return false
 		end
 
-		local payload = Services.HttpService:JSONEncode({
+		local payload = JSONEncode(HttpService, {
 			type = "result",
 			data = {
 				id = id,
@@ -219,7 +236,7 @@ function WebSocket.create(config)
 		})
 
 		local ok = pcall(function()
-			wsClient:Send(payload)
+			client:Send(payload)
 		end)
 
 		return ok
@@ -229,17 +246,18 @@ function WebSocket.create(config)
 	-- Keepalive Ping
 	--------------------------------------------------------------------------------
 	function manager.sendPing()
-		if not wsClient or not state.isConnected then
+		local client = wsClient
+		if not client or not state.isConnected then
 			return false
 		end
 
-		local payload = Services.HttpService:JSONEncode({
+		local payload = JSONEncode(HttpService, {
 			type = "ping",
 			timestamp = tick()
 		})
 
 		pcall(function()
-			wsClient:Send(payload)
+			client:Send(payload)
 		end)
 
 		return true
@@ -250,17 +268,17 @@ function WebSocket.create(config)
 	--------------------------------------------------------------------------------
 	function manager.startLoop()
 		-- Main connection loop
-		coroutine.wrap(function()
+		coroutine_wrap(function()
 			print("[MCP] Bridge starting (v" .. config.VERSION .. ")...")
 
 			while true do
-				task.wait(0.5)
+				task_wait(0.5)
 
 				if state.isEnabled then
 					-- Try to connect if not connected
 					if not state.isConnected and not wsClient and not isConnecting then
 						connect()
-						task.wait(state.retryInterval)
+						task_wait(state.retryInterval)
 					end
 				else
 					-- Disconnect if disabled
@@ -272,9 +290,9 @@ function WebSocket.create(config)
 		end)()
 
 		-- Keepalive ping loop
-		coroutine.wrap(function()
+		coroutine_wrap(function()
 			while true do
-				task.wait(30) -- Ping every 30 seconds
+				task_wait(30) -- Ping every 30 seconds
 				if state.isConnected then
 					manager.sendPing()
 				end

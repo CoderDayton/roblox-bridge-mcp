@@ -1,3 +1,4 @@
+--!optimize 2
 --------------------------------------------------------------------------------
 -- Instance Management Tools
 -- Provides methods for creating, deleting, cloning, and querying instances.
@@ -11,6 +12,14 @@
 --   Selection: GetSelection, SetSelection, ClearSelection, AddToSelection, GroupSelection, UngroupModel
 --   Model: GetBoundingBox, GetExtentsSize, ScaleTo, GetScale, TranslateBy, SetPrimaryPart, GetPrimaryPart
 --------------------------------------------------------------------------------
+
+-- Localize globals for performance
+local table_insert = table.insert
+local pairs = pairs
+local ipairs = ipairs
+local pcall = pcall
+local tostring = tostring
+
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 
@@ -21,8 +30,9 @@ function Tools.CreateInstance(p)
 	local parent = Path.require(p.parentPath or "game.Workspace")
 	local obj = Instance.new(p.className)
 	obj.Name = p.name or p.className
-	if p.properties then
-		for k, v in pairs(p.properties) do pcall(function() obj[k] = v end) end
+	local props = p.properties
+	if props then
+		for k, v in pairs(props) do pcall(function() obj[k] = v end) end
 	end
 	obj.Parent = parent
 	return obj:GetFullName()
@@ -116,17 +126,19 @@ function Tools.GetProperty(p) return Path.require(p.path)[p.property] end
 
 -- Hierarchy
 function Tools.GetChildren(p)
-	local names = {}
-	for _, child in pairs(Path.require(p.path):GetChildren()) do
-		table.insert(names, child.Name)
+	local children = Path.require(p.path):GetChildren()
+	local names = table.create(#children)
+	for i, child in ipairs(children) do
+		names[i] = child.Name
 	end
 	return names
 end
 
 function Tools.GetDescendants(p)
-	local paths = {}
-	for _, desc in pairs(Path.require(p.path):GetDescendants()) do
-		table.insert(paths, desc:GetFullName())
+	local descendants = Path.require(p.path):GetDescendants()
+	local paths = table.create(#descendants)
+	for i, desc in ipairs(descendants) do
+		paths[i] = desc:GetFullName()
 	end
 	return paths
 end
@@ -150,7 +162,7 @@ function Tools.GetAncestors(p)
 	local ancestors = {}
 	local current = obj.Parent
 	while current do
-		table.insert(ancestors, current:GetFullName())
+		table_insert(ancestors, current:GetFullName())
 		current = current.Parent
 	end
 	return ancestors
@@ -158,18 +170,24 @@ end
 
 -- Selection
 function Tools.GetSelection()
-	local paths = {}
-	for _, obj in pairs(Services.Selection:Get()) do
-		table.insert(paths, obj:GetFullName())
+	local selection = Services.Selection:Get()
+	local paths = table.create(#selection)
+	for i, obj in ipairs(selection) do
+		paths[i] = obj:GetFullName()
 	end
 	return paths
 end
 
 function Tools.SetSelection(p)
-	local objs = {}
-	for _, path in pairs(p.paths) do
+	local pathList = p.paths
+	local objs = table.create(#pathList)
+	local idx = 0
+	for _, path in ipairs(pathList) do
 		local obj = Path.resolve(path)
-		if obj then table.insert(objs, obj) end
+		if obj then
+			idx = idx + 1
+			objs[idx] = obj
+		end
 	end
 	Services.Selection:Set(objs)
 	return "Set"
@@ -182,9 +200,9 @@ end
 
 function Tools.AddToSelection(p)
 	local current = Services.Selection:Get()
-	for _, path in pairs(p.paths) do
+	for _, path in ipairs(p.paths) do
 		local obj = Path.resolve(path)
-		if obj then table.insert(current, obj) end
+		if obj then table_insert(current, obj) end
 	end
 	Services.Selection:Set(current)
 	return "Added"
@@ -196,7 +214,7 @@ function Tools.GroupSelection(p)
 	local model = Instance.new("Model")
 	model.Name = p.name
 	model.Parent = sel[1].Parent
-	for _, obj in pairs(sel) do obj.Parent = model end
+	for _, obj in ipairs(sel) do obj.Parent = model end
 	Services.Selection:Set({ model })
 	return model:GetFullName()
 end
@@ -205,7 +223,8 @@ function Tools.UngroupModel(p)
 	local model = Path.require(p.path)
 	if not model:IsA("Model") then error("Not a Model: " .. p.path) end
 	local parent = model.Parent
-	for _, child in pairs(model:GetChildren()) do child.Parent = parent end
+	local children = model:GetChildren()
+	for _, child in ipairs(children) do child.Parent = parent end
 	model:Destroy()
 	return "Ungrouped"
 end
