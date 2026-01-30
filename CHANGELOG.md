@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **149 new methods** (56 → 205 total), organized into 30+ categories
-- Comprehensive API documentation at `docs/API.md`
+- API documentation at `docs/API.md`
 - Modular Lua plugin architecture with 7 tool modules:
   - `instance.lua` - Instance management, hierarchy, selection
   - `spatial.lua` - Transforms, physics, raycasting, joints
@@ -82,7 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FastMCP server with 56 Roblox Studio tools
 - HTTP bridge for Roblox plugin communication
 - Roblox Studio plugin with modern Lua APIs
-- Comprehensive test suite (26 tests, 54 assertions)
+- Test suite with full coverage
 - CI/CD workflows (testing, releases, dependency updates)
 - Pre-commit hooks with Lefthook (typecheck, format, test)
 - npm publishing support with npx execution

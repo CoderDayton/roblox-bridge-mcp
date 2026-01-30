@@ -400,7 +400,7 @@ const METHODS = [
 ] as const;
 
 /**
- * Comprehensive description of all 205 Roblox Studio API methods
+ * All 205 Roblox Studio API methods
  *
  * Format: MethodName(params) -> ReturnType
  * - Optional params marked with ?

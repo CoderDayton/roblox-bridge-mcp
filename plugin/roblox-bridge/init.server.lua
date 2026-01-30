@@ -65,7 +65,7 @@ local wsManager = nil
 --------------------------------------------------------------------------------
 
 local toolbar = plugin:CreateToolbar("MCP Bridge")
-local toggleButton = toolbar:CreateButton("MCP Toggle", "Toggle MCP Bridge UI", "")
+local toggleButton = toolbar:CreateButton("MCP Toggle", "Toggle MCP Bridge UI", "rbxassetid://87958811949866")
 toggleButton.ClickableWhenViewportHidden = true
 
 local function updateButtonState()

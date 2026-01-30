@@ -74,10 +74,7 @@ export class RobloxExecutionError extends Error {
   }
 }
 
-/**
- * Error thrown when the HTTP bridge server cannot be reached
- * Indicates server not started, wrong port, or network firewall blocking connection
- */
+/** Error thrown when the WebSocket bridge server cannot be reached */
 export class BridgeConnectionError extends Error {
   constructor(message = "Cannot connect to Roblox bridge. Is the server running?") {
     super(message);

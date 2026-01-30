@@ -212,7 +212,7 @@ describe("roblox-tools", () => {
       });
 
       const result = await executePromise;
-      expect(result).toBe(JSON.stringify({ x: 0, y: 5, z: 10 }, null, 2));
+      expect(result).toBe(JSON.stringify({ x: 0, y: 5, z: 10 }));
     });
 
     test("stringifies array results", async () => {
@@ -231,7 +231,7 @@ describe("roblox-tools", () => {
       });
 
       const result = await executePromise;
-      expect(result).toBe(JSON.stringify(["Part1", "Part2", "Model1"], null, 2));
+      expect(result).toBe(JSON.stringify(["Part1", "Part2", "Model1"]));
     });
 
     test("handles numeric results", async () => {

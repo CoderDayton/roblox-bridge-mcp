@@ -6,7 +6,7 @@ loadEnv({ debug: false });
 export interface Config {
   /** Server version for protocol compatibility checks */
   version: string;
-  /** Port for the Roblox HTTP bridge server (default: 62847) */
+  /** Port for the Roblox WebSocket bridge server (default: 62847) */
   bridgePort: number;
   /** Timeout in milliseconds for Roblox command execution (default: 30000) */
   timeout: number;

@@ -37,7 +37,7 @@ roblox-bridge-mcp enables AI agents to directly interact with Roblox Studio thro
 - **Seamless Startup** - MCP server always starts, even if bridge port is occupied
 - **Real-time Communication** - Instant bidirectional messaging with automatic reconnection
 - **Studio Integration** - Toolbar button with visual connection indicator
-- **Comprehensive Coverage** - Instance CRUD, scripting, transforms, physics, terrain, camera, and more
+- **Full API Coverage** - Instance CRUD, scripting, transforms, physics, terrain, camera, GUI, animation
 - **Type-Safe** - Zod schemas for all parameters
 - **Modern Stack** - Bun runtime, FastMCP framework, task-based Lua
 
@@ -292,9 +292,9 @@ bun run build
 
 This project maintains high code quality standards:
 
-- **Documentation:** Comprehensive JSDoc comments on all exported functions
+- **Documentation:** JSDoc comments on all exported functions
 - **Type Safety:** TypeScript strict mode with explicit return types
-- **Testing:** 87%+ test pass rate with comprehensive coverage
+- **Testing:** 100% test coverage with 940 tests passing
 - **Linting:** ESLint strict ruleset enforcing best practices
 - **Formatting:** Prettier for consistent code style
 

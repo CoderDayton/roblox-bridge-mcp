@@ -14,8 +14,7 @@ registerAllTools(server);
 registerResources(server);
 logger.server.info("Registered all Roblox tools and resources");
 
-// Start the HTTP bridge for Roblox plugin communication (non-blocking)
-// The MCP server will start regardless of bridge success
+// Start WebSocket bridge for Roblox plugin communication (non-blocking)
 startBridgeServer();
 
 // Start MCP server (stdio transport for Claude Desktop / local agents)
