@@ -14,6 +14,7 @@ const METHODS = [
   // Instance management
   "CreateInstance",
   "DeleteInstance",
+  "ClearAllChildren",
   "CloneInstance",
   "RenameInstance",
   // Instance discovery & info
@@ -35,6 +36,8 @@ const METHODS = [
   // Hierarchy
   "GetChildren",
   "GetDescendants",
+  "GetDescendantCount",
+  "GetAncestors",
   "FindFirstChild",
   "GetService",
   // Transforms
@@ -71,6 +74,12 @@ const METHODS = [
   "GetCenterOfMass",
   "SetCollisionGroup",
   "GetCollisionGroup",
+  // Assembly Physics
+  "GetAssemblyMass",
+  "GetAssemblyCenterOfMass",
+  "GetRootPart",
+  "SetRootPriority",
+  "GetRootPriority",
   // Attachments
   "CreateAttachment",
   "GetAttachmentPosition",
@@ -102,6 +111,10 @@ const METHODS = [
   "SetSkybox",
   "CreateBeam",
   "CreateTrail",
+  "GetSunDirection",
+  "GetMoonDirection",
+  "GetMinutesAfterMidnight",
+  "SetMinutesAfterMidnight",
   // Attributes & Tags
   "SetAttribute",
   "GetAttribute",
@@ -149,6 +162,10 @@ const METHODS = [
   "SetCameraType",
   "ZoomCamera",
   "GetCameraType",
+  "ScreenPointToRay",
+  "ViewportPointToRay",
+  "WorldToScreenPoint",
+  "WorldToViewportPoint",
   // Utilities
   "GetDistance",
   "HighlightObject",
@@ -165,6 +182,14 @@ const METHODS = [
   "StopAnimation",
   "SetCharacterAppearance",
   "GetCharacter",
+  // Humanoid
+  "GetHumanoidState",
+  "ChangeHumanoidState",
+  "TakeDamage",
+  "GetAccessories",
+  "AddAccessory",
+  "RemoveAccessories",
+  "GetHumanoidDescription",
   // GUI
   "CreateGuiElement",
   "SetGuiText",
@@ -219,20 +244,30 @@ const METHODS = [
   "ScaleTo",
   "GetScale",
   "TranslateBy",
+  "SetPrimaryPart",
+  "GetPrimaryPart",
+  // RunService State
+  "IsStudio",
+  "IsRunMode",
+  "IsEdit",
+  "IsRunning",
+  // Workspace Utilities
+  "GetServerTimeNow",
+  "GetRealPhysicsFPS",
 ] as const;
 
 /**
- * Comprehensive description of all 174 Roblox Studio API methods
+ * Comprehensive description of all 205 Roblox Studio API methods
  * Format: MethodName(param1,param2?,param3?)
  * Optional params marked with ?, arrays marked with [], numeric ranges shown as min-max
  */
 const DESCRIPTION = `Roblox Studio ops. method + params{}.
-CreateInstance(className,parentPath,name?,properties?) DeleteInstance(path) CloneInstance(path,parentPath?) RenameInstance(path,newName)
+CreateInstance(className,parentPath,name?,properties?) DeleteInstance(path) ClearAllChildren(path) CloneInstance(path,parentPath?) RenameInstance(path,newName)
 GetFullName(path) GetParent(path) IsA(path,className) GetClassName(path) WaitForChild(path,name,timeout?)
 FindFirstAncestor(path,name) FindFirstAncestorOfClass(path,className) FindFirstAncestorWhichIsA(path,className)
 FindFirstChildOfClass(path,className) FindFirstChildWhichIsA(path,className,recursive?) FindFirstDescendant(path,name) GetDebugId(path)
 SetProperty(path,property,value) GetProperty(path,property)
-GetChildren(path) GetDescendants(path) FindFirstChild(path,name,recursive?) GetService(service)
+GetChildren(path) GetDescendants(path) GetDescendantCount(path) GetAncestors(path) FindFirstChild(path,name,recursive?) GetService(service)
 MoveTo(path,position[3]) SetPosition(path,x,y,z) GetPosition(path) SetRotation(path,x,y,z) GetRotation(path)
 SetSize(path,x,y,z) GetSize(path) PivotTo(path,cframe[12]) GetPivot(path)
 SetColor(path,r,g,b) SetTransparency(path,value:0-1) SetMaterial(path,material)
@@ -241,6 +276,7 @@ SetPhysicalProperties(path,density?,friction?,elasticity?) GetMass(path) ApplyIm
 BreakJoints(path) GetJoints(path) GetConnectedParts(path,recursive?) GetTouchingParts(path)
 SetMassless(path,massless) GetVelocity(path) SetVelocity(path,x,y,z) GetAngularVelocity(path) SetAngularVelocity(path,x,y,z) GetCenterOfMass(path)
 SetCollisionGroup(path,group) GetCollisionGroup(path)
+GetAssemblyMass(path) GetAssemblyCenterOfMass(path) GetRootPart(path) SetRootPriority(path,priority) GetRootPriority(path)
 CreateAttachment(parentPath,name?,position?,orientation?) GetAttachmentPosition(path) SetAttachmentPosition(path,x,y,z)
 CreateScript(name,parentPath,source,type?) GetScriptSource(path) SetScriptSource(path,source)
 AppendToScript(path,code) ReplaceScriptLines(path,startLine,endLine,content) InsertScriptLines(path,lineNumber,content) RunConsoleCommand(code)
@@ -249,6 +285,7 @@ SetTimeOfDay(time) SetBrightness(brightness) SetAtmosphereDensity(density) SetAt
 SetFog(start?,fogEnd?,color?) CreateLight(parentPath,type,brightness?,color?) CreateClouds(cover?,density?,color?)
 SetSkybox(skyboxBk?,skyboxDn?,skyboxFt?,skyboxLf?,skyboxRt?,skyboxUp?,sunTextureId?,moonTextureId?)
 CreateBeam(attachment0Path,attachment1Path,color?,width0?,width1?,segments?) CreateTrail(attachment0Path,attachment1Path,lifetime?,color?,widthScale?)
+GetSunDirection() GetMoonDirection() GetMinutesAfterMidnight() SetMinutesAfterMidnight(minutes)
 SetAttribute(path,name,value) GetAttribute(path,name) GetAttributes(path) RemoveAttribute(path,name) AddTag(path,tag) RemoveTag(path,tag) GetTags(path) GetTagged(tag) HasTag(path,tag)
 GetPlayers() GetPlayerInfo(name) GetPlayerPosition(username) TeleportPlayer(username,position[3]) KickPlayer(username,reason?)
 SavePlace() GetPlaceInfo() GetPlaceVersion() GetGameId() SetGravity(gravity) GetGravity()
@@ -257,9 +294,12 @@ PlaySound(soundId,parentPath?,volume?) StopSound(path)
 FillTerrain(material,minX,minY,minZ,maxX,maxY,maxZ) FillTerrainRegion(min[3],max[3],material) FillBall(center[3],radius,material) FillBlock(position[3],size[3],material)
 FillCylinder(position[3],height,radius,material) FillWedge(position[3],size[3],material) ClearTerrain() GetTerrainInfo() ReplaceMaterial(min[3],max[3],sourceMaterial,targetMaterial)
 SetCameraPosition(x,y,z) SetCameraTarget(x,y,z) SetCameraFocus(path) GetCameraPosition() SetCameraType(cameraType) ZoomCamera(distance) GetCameraType()
+ScreenPointToRay(x,y,depth?) ViewportPointToRay(x,y,depth?) WorldToScreenPoint(x,y,z) WorldToViewportPoint(x,y,z)
 GetDistance(path1,path2) HighlightObject(path,color?,duration?) Chat(message) Undo() Redo() RecordUndo(name) GetCanUndo() GetCanRedo()
 PlayAnimation(trackId,fadeTime?,weight?,speed?) LoadAnimation(humanoidPath,animationId) StopAnimation(trackId,fadeTime?)
 SetCharacterAppearance(playerName,userId?) GetCharacter(playerName)
+GetHumanoidState(humanoidPath) ChangeHumanoidState(humanoidPath,state) TakeDamage(humanoidPath,amount)
+GetAccessories(humanoidPath) AddAccessory(humanoidPath,accessoryPath) RemoveAccessories(humanoidPath) GetHumanoidDescription(humanoidPath)
 CreateGuiElement(className,parentPath,name?,properties?) SetGuiText(path,text) SetGuiSize(path,scaleX,scaleY,offsetX?,offsetY?)
 SetGuiPosition(path,scaleX,scaleY,offsetX?,offsetY?) SetGuiVisible(path,visible) DestroyGuiElement(path)
 FireRemoteEvent(path,playerName?,args[]?) InvokeRemoteFunction(path,playerName,args[]?) CreateRemoteEvent(name,parentPath?) CreateRemoteFunction(name,parentPath?)
@@ -274,11 +314,12 @@ ApplyDecal(parentPath,textureId,face?) ApplyTexture(parentPath,textureId,face?)
 InsertAsset(assetId,parentPath?) InsertMesh(parentPath,meshId,textureId?,name?)
 CreateTeam(name,color?,autoAssignable?) SetPlayerTeam(playerName,teamName) GetPlayerTeam(playerName)
 CreateLeaderstat(playerName,statName,valueType?,initialValue?) SetLeaderstatValue(playerName,statName,value) GetLeaderstatValue(playerName,statName)
-GetBoundingBox(path) GetExtentsSize(path) ScaleTo(path,scale) GetScale(path) TranslateBy(path,offset[3])`;
+GetBoundingBox(path) GetExtentsSize(path) ScaleTo(path,scale) GetScale(path) TranslateBy(path,offset[3]) SetPrimaryPart(path,primaryPartPath) GetPrimaryPart(path)
+IsStudio() IsRunMode() IsEdit() IsRunning() GetServerTimeNow() GetRealPhysicsFPS()`;
 
 /**
  * Register all Roblox Studio tools with the FastMCP server
- * Registers a single 'roblox' tool that dispatches to 174 different methods
+ * Registers a single 'roblox' tool that dispatches to 205 different methods
  * @param server - FastMCP server instance to register tools with
  */
 export function registerAllTools(server: FastMCP): void {

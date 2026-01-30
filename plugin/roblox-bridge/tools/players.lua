@@ -142,6 +142,64 @@ function Tools.StopAnimation(p)
 	return "Stopped"
 end
 
+-- Humanoid
+function Tools.GetHumanoidState(p)
+	local humanoid = Path.requireHumanoid(p.humanoidPath)
+	return tostring(humanoid:GetState())
+end
+
+function Tools.ChangeHumanoidState(p)
+	local humanoid = Path.requireHumanoid(p.humanoidPath)
+	local state = Enum.HumanoidStateType[p.state]
+	if not state then error("Invalid state: " .. p.state) end
+	humanoid:ChangeState(state)
+	return "Changed"
+end
+
+function Tools.TakeDamage(p)
+	local humanoid = Path.requireHumanoid(p.humanoidPath)
+	humanoid:TakeDamage(p.amount)
+	return "Damaged"
+end
+
+function Tools.GetAccessories(p)
+	local humanoid = Path.requireHumanoid(p.humanoidPath)
+	local accessories = humanoid:GetAccessories()
+	local paths = {}
+	for _, acc in ipairs(accessories) do
+		table.insert(paths, acc:GetFullName())
+	end
+	return paths
+end
+
+function Tools.AddAccessory(p)
+	local humanoid = Path.requireHumanoid(p.humanoidPath)
+	local accessory = Path.require(p.accessoryPath)
+	if not accessory:IsA("Accessory") then error("Not an Accessory: " .. p.accessoryPath) end
+	humanoid:AddAccessory(accessory)
+	return "Added"
+end
+
+function Tools.RemoveAccessories(p)
+	local humanoid = Path.requireHumanoid(p.humanoidPath)
+	humanoid:RemoveAccessories()
+	return "Removed"
+end
+
+function Tools.GetHumanoidDescription(p)
+	local humanoid = Path.requireHumanoid(p.humanoidPath)
+	local desc = humanoid:GetAppliedDescription()
+	if not desc then return nil end
+	return {
+		HeadColor = { desc.HeadColor.R, desc.HeadColor.G, desc.HeadColor.B },
+		BodyTypeScale = desc.BodyTypeScale,
+		HeadScale = desc.HeadScale,
+		HeightScale = desc.HeightScale,
+		WidthScale = desc.WidthScale,
+		DepthScale = desc.DepthScale,
+	}
+end
+
 -- Player Movement
 function Tools.GetPlayerPosition(p)
 	local player = Services.Players:FindFirstChild(p.username)

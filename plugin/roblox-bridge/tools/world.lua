@@ -116,6 +116,63 @@ function Tools.ZoomCamera(p)
 	return "Zoomed"
 end
 
+function Tools.ScreenPointToRay(p)
+	local camera = workspace.CurrentCamera
+	local ray = camera:ScreenPointToRay(p.x, p.y, p.depth or 0)
+	return {
+		origin = { ray.Origin.X, ray.Origin.Y, ray.Origin.Z },
+		direction = { ray.Direction.X, ray.Direction.Y, ray.Direction.Z },
+	}
+end
+
+function Tools.ViewportPointToRay(p)
+	local camera = workspace.CurrentCamera
+	local ray = camera:ViewportPointToRay(p.x, p.y, p.depth or 0)
+	return {
+		origin = { ray.Origin.X, ray.Origin.Y, ray.Origin.Z },
+		direction = { ray.Direction.X, ray.Direction.Y, ray.Direction.Z },
+	}
+end
+
+function Tools.WorldToScreenPoint(p)
+	local camera = workspace.CurrentCamera
+	local pos = Vector3.new(p.x, p.y, p.z)
+	local screenPoint, onScreen = camera:WorldToScreenPoint(pos)
+	return {
+		position = { screenPoint.X, screenPoint.Y, screenPoint.Z },
+		onScreen = onScreen,
+	}
+end
+
+function Tools.WorldToViewportPoint(p)
+	local camera = workspace.CurrentCamera
+	local pos = Vector3.new(p.x, p.y, p.z)
+	local viewportPoint, onScreen = camera:WorldToViewportPoint(pos)
+	return {
+		position = { viewportPoint.X, viewportPoint.Y, viewportPoint.Z },
+		onScreen = onScreen,
+	}
+end
+
+function Tools.GetSunDirection()
+	local dir = Services.Lighting:GetSunDirection()
+	return { dir.X, dir.Y, dir.Z }
+end
+
+function Tools.GetMoonDirection()
+	local dir = Services.Lighting:GetMoonDirection()
+	return { dir.X, dir.Y, dir.Z }
+end
+
+function Tools.GetMinutesAfterMidnight()
+	return Services.Lighting:GetMinutesAfterMidnight()
+end
+
+function Tools.SetMinutesAfterMidnight(p)
+	Services.Lighting:SetMinutesAfterMidnight(p.minutes)
+	return "Set"
+end
+
 -- Change History
 function Tools.RecordUndo(p)
 	Services.ChangeHistoryService:SetWaypoint(p.name)
@@ -266,6 +323,32 @@ function Tools.Chat(p)
 	local systemChannel = channels and channels:FindFirstChild("RBXSystem")
 	if systemChannel then systemChannel:DisplaySystemMessage(p.message) return "Sent" end
 	return "Chat not available"
+end
+
+-- RunService State
+function Tools.IsStudio()
+	return Services.RunService:IsStudio()
+end
+
+function Tools.IsRunMode()
+	return Services.RunService:IsRunMode()
+end
+
+function Tools.IsEdit()
+	return Services.RunService:IsEdit()
+end
+
+function Tools.IsRunning()
+	return Services.RunService:IsRunning()
+end
+
+-- Workspace Utilities
+function Tools.GetServerTimeNow()
+	return workspace:GetServerTimeNow()
+end
+
+function Tools.GetRealPhysicsFPS()
+	return workspace:GetRealPhysicsFPS()
 end
 
 return Tools

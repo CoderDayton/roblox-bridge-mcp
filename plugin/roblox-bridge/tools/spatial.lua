@@ -362,4 +362,30 @@ function Tools.GetCenterOfMass(p)
 	return { com.X, com.Y, com.Z }
 end
 
+-- Assembly Physics
+function Tools.GetAssemblyMass(p)
+	return Path.requireBasePart(p.path):GetMass()
+end
+
+function Tools.GetAssemblyCenterOfMass(p)
+	local part = Path.requireBasePart(p.path)
+	local com = part.AssemblyCenterOfMass
+	return { com.X, com.Y, com.Z }
+end
+
+function Tools.GetRootPart(p)
+	local part = Path.requireBasePart(p.path)
+	local root = part.AssemblyRootPart
+	return root and root:GetFullName() or nil
+end
+
+function Tools.SetRootPriority(p)
+	Path.requireBasePart(p.path).RootPriority = p.priority
+	return "Set"
+end
+
+function Tools.GetRootPriority(p)
+	return Path.requireBasePart(p.path).RootPriority
+end
+
 return Tools

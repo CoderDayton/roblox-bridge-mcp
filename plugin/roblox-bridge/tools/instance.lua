@@ -21,6 +21,11 @@ function Tools.DeleteInstance(p)
 	return "Deleted"
 end
 
+function Tools.ClearAllChildren(p)
+	Path.require(p.path):ClearAllChildren()
+	return "Cleared"
+end
+
 function Tools.CloneInstance(p)
 	local clone = Path.require(p.path):Clone()
 	clone.Parent = p.parentPath and Path.resolve(p.parentPath) or nil
@@ -114,6 +119,10 @@ function Tools.GetDescendants(p)
 	return paths
 end
 
+function Tools.GetDescendantCount(p)
+	return #Path.require(p.path):GetDescendants()
+end
+
 function Tools.FindFirstChild(p)
 	local child = Path.require(p.path):FindFirstChild(p.name, p.recursive or false)
 	return child and child:GetFullName() or nil
@@ -122,6 +131,17 @@ end
 function Tools.GetService(p)
 	local ok, service = pcall(game.GetService, game, p.service)
 	return ok and service and service.Name or "NotFound"
+end
+
+function Tools.GetAncestors(p)
+	local obj = Path.require(p.path)
+	local ancestors = {}
+	local current = obj.Parent
+	while current do
+		table.insert(ancestors, current:GetFullName())
+		current = current.Parent
+	end
+	return ancestors
 end
 
 -- Selection
@@ -214,6 +234,21 @@ function Tools.TranslateBy(p)
 	if not obj:IsA("Model") then error("Not a Model: " .. p.path) end
 	obj:TranslateBy(Vector3.new(p.offset[1], p.offset[2], p.offset[3]))
 	return "Translated"
+end
+
+-- Model Primary Part
+function Tools.SetPrimaryPart(p)
+	local model = Path.require(p.path)
+	if not model:IsA("Model") then error("Not a Model: " .. p.path) end
+	local primaryPart = Path.requireBasePart(p.primaryPartPath)
+	model.PrimaryPart = primaryPart
+	return "Set"
+end
+
+function Tools.GetPrimaryPart(p)
+	local model = Path.require(p.path)
+	if not model:IsA("Model") then error("Not a Model: " .. p.path) end
+	return model.PrimaryPart and model.PrimaryPart:GetFullName() or nil
 end
 
 return Tools
