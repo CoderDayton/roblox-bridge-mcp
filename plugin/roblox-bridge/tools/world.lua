@@ -29,6 +29,52 @@ function Tools.ClearTerrain()
 	return "Cleared"
 end
 
+function Tools.FillBall(p)
+	local center = Vector3.new(p.center[1], p.center[2], p.center[3])
+	local material = Enum.Material[p.material]
+	if not material then error("Invalid material: " .. p.material) end
+	workspace.Terrain:FillBall(center, p.radius, material)
+	return "Filled"
+end
+
+function Tools.FillBlock(p)
+	local cframe = CFrame.new(p.position[1], p.position[2], p.position[3])
+	local size = Vector3.new(p.size[1], p.size[2], p.size[3])
+	local material = Enum.Material[p.material]
+	if not material then error("Invalid material: " .. p.material) end
+	workspace.Terrain:FillBlock(cframe, size, material)
+	return "Filled"
+end
+
+function Tools.FillCylinder(p)
+	local cframe = CFrame.new(p.position[1], p.position[2], p.position[3])
+	local material = Enum.Material[p.material]
+	if not material then error("Invalid material: " .. p.material) end
+	workspace.Terrain:FillCylinder(cframe, p.height, p.radius, material)
+	return "Filled"
+end
+
+function Tools.FillWedge(p)
+	local cframe = CFrame.new(p.position[1], p.position[2], p.position[3])
+	local size = Vector3.new(p.size[1], p.size[2], p.size[3])
+	local material = Enum.Material[p.material]
+	if not material then error("Invalid material: " .. p.material) end
+	workspace.Terrain:FillWedge(cframe, size, material)
+	return "Filled"
+end
+
+function Tools.ReplaceMaterial(p)
+	local min = Vector3.new(p.min[1], p.min[2], p.min[3])
+	local max = Vector3.new(p.max[1], p.max[2], p.max[3])
+	local region = Region3.new(min, max):ExpandToGrid(4)
+	local sourceMaterial = Enum.Material[p.sourceMaterial]
+	local targetMaterial = Enum.Material[p.targetMaterial]
+	if not sourceMaterial then error("Invalid source material: " .. p.sourceMaterial) end
+	if not targetMaterial then error("Invalid target material: " .. p.targetMaterial) end
+	workspace.Terrain:ReplaceMaterial(region, 4, sourceMaterial, targetMaterial)
+	return "Replaced"
+end
+
 -- Camera
 function Tools.SetCameraPosition(p)
 	local camera = workspace.CurrentCamera

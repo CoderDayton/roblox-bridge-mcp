@@ -137,4 +137,42 @@ function Tools.UngroupModel(p)
 	return "Ungrouped"
 end
 
+-- Model Methods
+function Tools.GetBoundingBox(p)
+	local obj = Path.require(p.path)
+	if not obj:IsA("Model") then error("Not a Model: " .. p.path) end
+	local cf, size = obj:GetBoundingBox()
+	return {
+		cframe = { cf:GetComponents() },
+		size = { size.X, size.Y, size.Z },
+	}
+end
+
+function Tools.GetExtentsSize(p)
+	local obj = Path.require(p.path)
+	if not obj:IsA("Model") then error("Not a Model: " .. p.path) end
+	local size = obj:GetExtentsSize()
+	return { size.X, size.Y, size.Z }
+end
+
+function Tools.ScaleTo(p)
+	local obj = Path.require(p.path)
+	if not obj:IsA("Model") then error("Not a Model: " .. p.path) end
+	obj:ScaleTo(p.scale)
+	return "Scaled"
+end
+
+function Tools.GetScale(p)
+	local obj = Path.require(p.path)
+	if not obj:IsA("Model") then error("Not a Model: " .. p.path) end
+	return obj:GetScale()
+end
+
+function Tools.TranslateBy(p)
+	local obj = Path.require(p.path)
+	if not obj:IsA("Model") then error("Not a Model: " .. p.path) end
+	obj:TranslateBy(Vector3.new(p.offset[1], p.offset[2], p.offset[3]))
+	return "Translated"
+end
+
 return Tools

@@ -50,6 +50,12 @@ const METHODS = [
   "CreateConstraint",
   "SetPhysicalProperties",
   "GetMass",
+  "ApplyImpulse",
+  "ApplyAngularImpulse",
+  "BreakJoints",
+  "GetJoints",
+  "GetConnectedParts",
+  "GetTouchingParts",
   // Scripting
   "CreateScript",
   "GetScriptSource",
@@ -95,8 +101,13 @@ const METHODS = [
   // Terrain
   "FillTerrain",
   "FillTerrainRegion",
+  "FillBall",
+  "FillBlock",
+  "FillCylinder",
+  "FillWedge",
   "ClearTerrain",
   "GetTerrainInfo",
+  "ReplaceMaterial",
   // Camera
   "SetCameraPosition",
   "SetCameraTarget",
@@ -139,9 +150,14 @@ const METHODS = [
   // Tween
   "CreateTween",
   "TweenProperty",
-  // Raycasting
+  // Raycasting & Spatial Queries
   "Raycast",
   "RaycastTo",
+  "Spherecast",
+  "Blockcast",
+  "GetPartsInPart",
+  "GetPartBoundsInRadius",
+  "GetPartBoundsInBox",
   // Constraints
   "CreateWeld",
   "CreateMotor6D",
@@ -162,10 +178,16 @@ const METHODS = [
   "CreateLeaderstat",
   "SetLeaderstatValue",
   "GetLeaderstatValue",
+  // Model Operations
+  "GetBoundingBox",
+  "GetExtentsSize",
+  "ScaleTo",
+  "GetScale",
+  "TranslateBy",
 ] as const;
 
 /**
- * Comprehensive description of all 122 Roblox Studio API methods
+ * Comprehensive description of all 143 Roblox Studio API methods
  * Format: MethodName(param1,param2?,param3?)
  * Optional params marked with ?, arrays marked with [], numeric ranges shown as min-max
  */
@@ -178,7 +200,8 @@ MoveTo(path,position[3]) SetPosition(path,x,y,z) GetPosition(path) SetRotation(p
 SetSize(path,x,y,z) GetSize(path) PivotTo(path,cframe[12]) GetPivot(path)
 SetColor(path,r,g,b) SetTransparency(path,value:0-1) SetMaterial(path,material)
 SetAnchored(path,anchored) SetCanCollide(path,canCollide) CreateConstraint(type,attachment0Path,attachment1Path,properties?)
-SetPhysicalProperties(path,density?,friction?,elasticity?) GetMass(path)
+SetPhysicalProperties(path,density?,friction?,elasticity?) GetMass(path) ApplyImpulse(path,impulse[3]) ApplyAngularImpulse(path,impulse[3])
+BreakJoints(path) GetJoints(path) GetConnectedParts(path,recursive?) GetTouchingParts(path)
 CreateScript(name,parentPath,source,type?) GetScriptSource(path) SetScriptSource(path,source)
 AppendToScript(path,code) ReplaceScriptLines(path,startLine,endLine,content) InsertScriptLines(path,lineNumber,content) RunConsoleCommand(code)
 GetSelection() SetSelection(paths[]) ClearSelection() AddToSelection(paths[]) GroupSelection(name) UngroupModel(path)
@@ -186,7 +209,8 @@ SetTimeOfDay(time) SetBrightness(brightness) SetAtmosphereDensity(density) Creat
 SetAttribute(path,name,value) GetAttribute(path,name) GetAttributes(path) RemoveAttribute(path,name) AddTag(path,tag) RemoveTag(path,tag) GetTags(path) GetTagged(tag) HasTag(path,tag)
 GetPlayers() GetPlayerInfo(name) GetPlayerPosition(username) TeleportPlayer(username,position[3]) KickPlayer(username,reason?)
 SavePlace() GetPlaceInfo() PlaySound(soundId,parentPath?,volume?) StopSound(path)
-FillTerrain(material,minX,minY,minZ,maxX,maxY,maxZ) FillTerrainRegion(min[3],max[3],material) ClearTerrain() GetTerrainInfo()
+FillTerrain(material,minX,minY,minZ,maxX,maxY,maxZ) FillTerrainRegion(min[3],max[3],material) FillBall(center[3],radius,material) FillBlock(position[3],size[3],material)
+FillCylinder(position[3],height,radius,material) FillWedge(position[3],size[3],material) ClearTerrain() GetTerrainInfo() ReplaceMaterial(min[3],max[3],sourceMaterial,targetMaterial)
 SetCameraPosition(x,y,z) SetCameraTarget(x,y,z) SetCameraFocus(path) GetCameraPosition() SetCameraType(cameraType) ZoomCamera(distance) GetCameraType()
 GetDistance(path1,path2) HighlightObject(path,color?,duration?) Chat(message) Undo() Redo() RecordUndo(name)
 PlayAnimation(trackId,fadeTime?,weight?,speed?) LoadAnimation(humanoidPath,animationId) StopAnimation(trackId,fadeTime?)
@@ -197,16 +221,19 @@ FireRemoteEvent(path,playerName?,args[]?) InvokeRemoteFunction(path,playerName,a
 GetDataStore(name,scope?) SetDataStoreValue(storeName,key,value) GetDataStoreValue(storeName,key) RemoveDataStoreValue(storeName,key)
 CreateTween(path,goals,duration?,easingStyle?,easingDirection?,repeatCount?,reverses?,delayTime?,autoPlay?) TweenProperty(path,property,value,duration?)
 Raycast(origin[3],direction[3],filterDescendants[]?,filterType?) RaycastTo(originPath,targetPath,filterDescendants[]?,filterType?)
+Spherecast(position[3],radius,direction[3],filterDescendants[]?,filterType?) Blockcast(position[3],size[3],direction[3],filterDescendants[]?,filterType?)
+GetPartsInPart(path,filterDescendants[]?,filterType?) GetPartBoundsInRadius(position[3],radius,filterDescendants[]?) GetPartBoundsInBox(position[3],size[3],filterDescendants[]?)
 CreateWeld(part0Path,part1Path) CreateMotor6D(part0Path,part1Path,name?)
 CreateParticleEmitter(parentPath,properties?) EmitParticles(path,count?)
 ApplyDecal(parentPath,textureId,face?) ApplyTexture(parentPath,textureId,face?)
 InsertAsset(assetId,parentPath?) InsertMesh(parentPath,meshId,textureId?,name?)
 CreateTeam(name,color?,autoAssignable?) SetPlayerTeam(playerName,teamName) GetPlayerTeam(playerName)
-CreateLeaderstat(playerName,statName,valueType?,initialValue?) SetLeaderstatValue(playerName,statName,value) GetLeaderstatValue(playerName,statName)`;
+CreateLeaderstat(playerName,statName,valueType?,initialValue?) SetLeaderstatValue(playerName,statName,value) GetLeaderstatValue(playerName,statName)
+GetBoundingBox(path) GetExtentsSize(path) ScaleTo(path,scale) GetScale(path) TranslateBy(path,offset[3])`;
 
 /**
  * Register all Roblox Studio tools with the FastMCP server
- * Registers a single 'roblox' tool that dispatches to 114 different methods
+ * Registers a single 'roblox' tool that dispatches to 143 different methods
  * @param server - FastMCP server instance to register tools with
  */
 export function registerAllTools(server: FastMCP): void {
