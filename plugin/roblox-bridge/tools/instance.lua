@@ -1,4 +1,16 @@
--- Instance management, properties, hierarchy, and selection tools
+--------------------------------------------------------------------------------
+-- Instance Management Tools
+-- Provides methods for creating, deleting, cloning, and querying instances.
+-- Also handles selection management, hierarchy traversal, and model operations.
+--
+-- Methods:
+--   Instance: CreateInstance, DeleteInstance, ClearAllChildren, CloneInstance, RenameInstance
+--   Discovery: GetFullName, GetParent, IsA, GetClassName, WaitForChild, FindFirst*
+--   Properties: SetProperty, GetProperty
+--   Hierarchy: GetChildren, GetDescendants, GetDescendantCount, GetAncestors, FindFirstChild, GetService
+--   Selection: GetSelection, SetSelection, ClearSelection, AddToSelection, GroupSelection, UngroupModel
+--   Model: GetBoundingBox, GetExtentsSize, ScaleTo, GetScale, TranslateBy, SetPrimaryPart, GetPrimaryPart
+--------------------------------------------------------------------------------
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 

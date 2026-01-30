@@ -1,4 +1,16 @@
--- Appearance, lighting, particles, materials, and GUI tools
+--------------------------------------------------------------------------------
+-- Visual & Environment Tools
+-- Provides methods for appearance, lighting, atmosphere, particles, and GUI.
+-- Handles colors, materials, skybox, beams, trails, and UI elements.
+--
+-- Methods:
+--   Appearance: SetColor, SetTransparency, SetMaterial
+--   Lighting: SetTimeOfDay, SetBrightness, SetAtmosphereDensity, SetAtmosphereColor, SetGlobalShadows, SetFog, CreateLight
+--   Environment: CreateClouds, SetSkybox, CreateBeam, CreateTrail
+--   Effects: HighlightObject, CreateParticleEmitter, EmitParticles
+--   Materials: ApplyDecal, ApplyTexture
+--   GUI: CreateGuiElement, SetGuiText, SetGuiSize, SetGuiPosition, SetGuiVisible, DestroyGuiElement
+--------------------------------------------------------------------------------
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 

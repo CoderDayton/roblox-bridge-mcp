@@ -1,10 +1,24 @@
--- Players, teams, leaderstats, character, and animation tools
+--------------------------------------------------------------------------------
+-- Player, Character & Animation Tools
+-- Provides methods for player management, teams, leaderstats, and character control.
+-- Handles humanoid state, accessories, damage, and animation playback.
+--
+-- Methods:
+--   Players: GetPlayers, GetPlayerInfo, GetPlayerPosition, TeleportPlayer, KickPlayer
+--   Teams: CreateTeam, SetPlayerTeam, GetPlayerTeam
+--   Leaderstats: CreateLeaderstat, SetLeaderstatValue, GetLeaderstatValue
+--   Character: GetCharacter, SetCharacterAppearance
+--   Animation: LoadAnimation, PlayAnimation, StopAnimation
+--   Humanoid: GetHumanoidState, ChangeHumanoidState, TakeDamage, GetAccessories, AddAccessory, RemoveAccessories, GetHumanoidDescription
+--
+-- Note: Animation tracks are stored in memory and referenced by trackId.
+--------------------------------------------------------------------------------
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 
 local Tools = {}
 
--- State for animation tracks
+-- State for animation tracks (trackId -> AnimationTrack)
 local animationTracks = {}
 
 -- Players

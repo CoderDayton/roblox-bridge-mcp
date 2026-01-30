@@ -1,4 +1,19 @@
--- Transform, physics, constraints, and raycast tools
+--------------------------------------------------------------------------------
+-- Spatial & Physics Tools
+-- Provides methods for transforms, physics properties, constraints, and raycasting.
+-- Handles position, rotation, size, velocity, impulses, and spatial queries.
+--
+-- Methods:
+--   Transforms: MoveTo, SetPosition, GetPosition, SetRotation, GetRotation, SetSize, GetSize, PivotTo, GetPivot
+--   Physics: SetAnchored, SetCanCollide, CreateConstraint, SetPhysicalProperties, GetMass, ApplyImpulse, ApplyAngularImpulse
+--   Joints: BreakJoints, GetJoints, GetConnectedParts, GetTouchingParts, CreateWeld, CreateMotor6D
+--   Velocity: SetMassless, GetVelocity, SetVelocity, GetAngularVelocity, SetAngularVelocity, GetCenterOfMass
+--   Collision: SetCollisionGroup, GetCollisionGroup
+--   Assembly: GetAssemblyMass, GetAssemblyCenterOfMass, GetRootPart, SetRootPriority, GetRootPriority
+--   Attachments: CreateAttachment, GetAttachmentPosition, SetAttachmentPosition
+--   Raycasting: Raycast, RaycastTo, Spherecast, Blockcast, GetPartsInPart, GetPartBoundsInRadius, GetPartBoundsInBox
+--   Utilities: GetDistance
+--------------------------------------------------------------------------------
 local Path = require(script.Parent.Parent.utils.path)
 
 local Tools = {}

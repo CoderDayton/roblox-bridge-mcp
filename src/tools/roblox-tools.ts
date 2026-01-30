@@ -5,19 +5,54 @@ import { config } from "../config";
 import { InvalidParameterError } from "../utils/errors";
 
 /**
- * All supported Roblox Studio API methods
- * Methods are organized by category: Instance Management, Discovery, Properties,
- * Hierarchy, Transforms, Appearance, Physics, Scripting, Selection, Lighting,
- * Attributes/Tags, Players, Place, Audio, Terrain, Camera, Utilities, History
+ * All supported Roblox Studio API methods (205 total)
+ *
+ * Methods are organized into the following categories:
+ * - Instance: Create, delete, clone, rename instances
+ * - Discovery: Find and query instance hierarchy
+ * - Properties: Get/set arbitrary properties
+ * - Hierarchy: Navigate parent/child relationships
+ * - Transforms: Position, rotation, size manipulation
+ * - Appearance: Colors, materials, transparency
+ * - Physics: Anchoring, collision, impulses, velocity
+ * - Attachments: Create and manipulate attachments
+ * - Scripting: Script creation and source manipulation
+ * - Selection: Studio selection management
+ * - Environment: Lighting, atmosphere, skybox, effects
+ * - Attributes/Tags: Custom attributes and CollectionService tags
+ * - Players: Player info, position, teams, leaderstats
+ * - Place: Place info and save operations
+ * - Pathfinding: AI navigation path computation
+ * - Audio: Sound playback control
+ * - Terrain: Voxel terrain manipulation
+ * - Camera: Camera position, rotation, coordinate conversion
+ * - History: Undo/redo operations
+ * - Character: Animation and humanoid control
+ * - GUI: UI element creation and manipulation
+ * - Networking: RemoteEvent/RemoteFunction management
+ * - DataStore: Persistent data storage
+ * - Tween: Property animation
+ * - Raycasting: Ray and shape casting queries
+ * - Constraints: Weld and Motor6D creation
+ * - Particles: Particle emitter control
+ * - Materials: Decal and texture application
+ * - Marketplace: Asset insertion
+ * - Model: Bounding box, scale, primary part
+ * - RunService: Runtime state queries
  */
 const METHODS = [
-  // Instance management
+  // ─────────────────────────────────────────────────────────────────────────────
+  // INSTANCE MANAGEMENT - Create, destroy, and manipulate instances
+  // ─────────────────────────────────────────────────────────────────────────────
   "CreateInstance",
   "DeleteInstance",
   "ClearAllChildren",
   "CloneInstance",
   "RenameInstance",
-  // Instance discovery & info
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // INSTANCE DISCOVERY - Find instances by name, class, or ancestry
+  // ─────────────────────────────────────────────────────────────────────────────
   "GetFullName",
   "GetParent",
   "IsA",
@@ -30,17 +65,26 @@ const METHODS = [
   "FindFirstChildWhichIsA",
   "FindFirstDescendant",
   "GetDebugId",
-  // Properties
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PROPERTIES - Get and set arbitrary instance properties
+  // ─────────────────────────────────────────────────────────────────────────────
   "SetProperty",
   "GetProperty",
-  // Hierarchy
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // HIERARCHY - Navigate and query instance trees
+  // ─────────────────────────────────────────────────────────────────────────────
   "GetChildren",
   "GetDescendants",
   "GetDescendantCount",
   "GetAncestors",
   "FindFirstChild",
   "GetService",
-  // Transforms
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // TRANSFORMS - Position, rotation, and size manipulation
+  // ─────────────────────────────────────────────────────────────────────────────
   "MoveTo",
   "SetPosition",
   "GetPosition",
@@ -50,11 +94,17 @@ const METHODS = [
   "GetSize",
   "PivotTo",
   "GetPivot",
-  // Appearance
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // APPEARANCE - Visual properties like color, material, transparency
+  // ─────────────────────────────────────────────────────────────────────────────
   "SetColor",
   "SetTransparency",
   "SetMaterial",
-  // Physics
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PHYSICS - Anchoring, collision, forces, and velocity
+  // ─────────────────────────────────────────────────────────────────────────────
   "SetAnchored",
   "SetCanCollide",
   "CreateConstraint",
@@ -74,17 +124,26 @@ const METHODS = [
   "GetCenterOfMass",
   "SetCollisionGroup",
   "GetCollisionGroup",
-  // Assembly Physics
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ASSEMBLY PHYSICS - Multi-part assembly properties
+  // ─────────────────────────────────────────────────────────────────────────────
   "GetAssemblyMass",
   "GetAssemblyCenterOfMass",
   "GetRootPart",
   "SetRootPriority",
   "GetRootPriority",
-  // Attachments
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ATTACHMENTS - Create and manipulate attachment points
+  // ─────────────────────────────────────────────────────────────────────────────
   "CreateAttachment",
   "GetAttachmentPosition",
   "SetAttachmentPosition",
-  // Scripting
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SCRIPTING - Script creation and source code manipulation
+  // ─────────────────────────────────────────────────────────────────────────────
   "CreateScript",
   "GetScriptSource",
   "SetScriptSource",
@@ -92,14 +151,20 @@ const METHODS = [
   "ReplaceScriptLines",
   "InsertScriptLines",
   "RunConsoleCommand",
-  // Selection
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SELECTION - Studio selection management
+  // ─────────────────────────────────────────────────────────────────────────────
   "GetSelection",
   "SetSelection",
   "ClearSelection",
   "AddToSelection",
   "GroupSelection",
   "UngroupModel",
-  // Lighting & Environment
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ENVIRONMENT - Lighting, atmosphere, skybox, and visual effects
+  // ─────────────────────────────────────────────────────────────────────────────
   "SetTimeOfDay",
   "SetBrightness",
   "SetAtmosphereDensity",
@@ -115,7 +180,10 @@ const METHODS = [
   "GetMoonDirection",
   "GetMinutesAfterMidnight",
   "SetMinutesAfterMidnight",
-  // Attributes & Tags
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ATTRIBUTES & TAGS - Custom attributes and CollectionService tags
+  // ─────────────────────────────────────────────────────────────────────────────
   "SetAttribute",
   "GetAttribute",
   "GetAttributes",
@@ -125,26 +193,44 @@ const METHODS = [
   "GetTags",
   "GetTagged",
   "HasTag",
-  // Players
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PLAYERS - Player info, position, and management
+  // ─────────────────────────────────────────────────────────────────────────────
   "GetPlayers",
   "GetPlayerInfo",
   "GetPlayerPosition",
   "TeleportPlayer",
   "KickPlayer",
-  // Place
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PLACE - Place metadata and save operations
+  // ─────────────────────────────────────────────────────────────────────────────
   "SavePlace",
   "GetPlaceInfo",
   "GetPlaceVersion",
   "GetGameId",
-  // World Settings
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // WORLD SETTINGS - Global workspace properties
+  // ─────────────────────────────────────────────────────────────────────────────
   "SetGravity",
   "GetGravity",
-  // Pathfinding
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PATHFINDING - AI navigation path computation
+  // ─────────────────────────────────────────────────────────────────────────────
   "ComputePath",
-  // Audio
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // AUDIO - Sound playback control
+  // ─────────────────────────────────────────────────────────────────────────────
   "PlaySound",
   "StopSound",
-  // Terrain
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // TERRAIN - Voxel terrain manipulation and queries
+  // ─────────────────────────────────────────────────────────────────────────────
   "FillTerrain",
   "FillTerrainRegion",
   "FillBall",
@@ -154,7 +240,10 @@ const METHODS = [
   "ClearTerrain",
   "GetTerrainInfo",
   "ReplaceMaterial",
-  // Camera
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CAMERA - Position, focus, and coordinate conversion
+  // ─────────────────────────────────────────────────────────────────────────────
   "SetCameraPosition",
   "SetCameraTarget",
   "SetCameraFocus",
@@ -166,23 +255,35 @@ const METHODS = [
   "ViewportPointToRay",
   "WorldToScreenPoint",
   "WorldToViewportPoint",
-  // Utilities
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // UTILITIES - Distance calculation, highlights, chat
+  // ─────────────────────────────────────────────────────────────────────────────
   "GetDistance",
   "HighlightObject",
   "Chat",
-  // History
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // HISTORY - Undo/redo and change recording
+  // ─────────────────────────────────────────────────────────────────────────────
   "Undo",
   "Redo",
   "RecordUndo",
   "GetCanUndo",
   "GetCanRedo",
-  // Animation & Character
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ANIMATION - Animation track loading and playback
+  // ─────────────────────────────────────────────────────────────────────────────
   "PlayAnimation",
   "LoadAnimation",
   "StopAnimation",
   "SetCharacterAppearance",
   "GetCharacter",
-  // Humanoid
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // HUMANOID - State, damage, and accessory management
+  // ─────────────────────────────────────────────────────────────────────────────
   "GetHumanoidState",
   "ChangeHumanoidState",
   "TakeDamage",
@@ -190,27 +291,42 @@ const METHODS = [
   "AddAccessory",
   "RemoveAccessories",
   "GetHumanoidDescription",
-  // GUI
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // GUI - UI element creation and manipulation
+  // ─────────────────────────────────────────────────────────────────────────────
   "CreateGuiElement",
   "SetGuiText",
   "SetGuiSize",
   "SetGuiPosition",
   "SetGuiVisible",
   "DestroyGuiElement",
-  // Networking
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // NETWORKING - RemoteEvent and RemoteFunction management
+  // ─────────────────────────────────────────────────────────────────────────────
   "FireRemoteEvent",
   "InvokeRemoteFunction",
   "CreateRemoteEvent",
   "CreateRemoteFunction",
-  // DataStore
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // DATASTORE - Persistent data storage (requires API access)
+  // ─────────────────────────────────────────────────────────────────────────────
   "GetDataStore",
   "SetDataStoreValue",
   "GetDataStoreValue",
   "RemoveDataStoreValue",
-  // Tween
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // TWEEN - Property animation with easing
+  // ─────────────────────────────────────────────────────────────────────────────
   "CreateTween",
   "TweenProperty",
-  // Raycasting & Spatial Queries
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RAYCASTING - Ray and shape casting spatial queries
+  // ─────────────────────────────────────────────────────────────────────────────
   "Raycast",
   "RaycastTo",
   "Spherecast",
@@ -218,27 +334,48 @@ const METHODS = [
   "GetPartsInPart",
   "GetPartBoundsInRadius",
   "GetPartBoundsInBox",
-  // Constraints
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CONSTRAINTS - Weld and motor creation
+  // ─────────────────────────────────────────────────────────────────────────────
   "CreateWeld",
   "CreateMotor6D",
-  // Particles
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PARTICLES - Particle emitter creation and control
+  // ─────────────────────────────────────────────────────────────────────────────
   "CreateParticleEmitter",
   "EmitParticles",
-  // Materials
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MATERIALS - Decal and texture application
+  // ─────────────────────────────────────────────────────────────────────────────
   "ApplyDecal",
   "ApplyTexture",
-  // Marketplace
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MARKETPLACE - Asset insertion from library
+  // ─────────────────────────────────────────────────────────────────────────────
   "InsertAsset",
   "InsertMesh",
-  // Teams
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // TEAMS - Team creation and player assignment
+  // ─────────────────────────────────────────────────────────────────────────────
   "CreateTeam",
   "SetPlayerTeam",
   "GetPlayerTeam",
-  // Leaderstats
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LEADERSTATS - Player leaderboard statistics
+  // ─────────────────────────────────────────────────────────────────────────────
   "CreateLeaderstat",
   "SetLeaderstatValue",
   "GetLeaderstatValue",
-  // Model Operations
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MODEL OPERATIONS - Bounding box, scale, and primary part
+  // ─────────────────────────────────────────────────────────────────────────────
   "GetBoundingBox",
   "GetExtentsSize",
   "ScaleTo",
@@ -246,76 +383,132 @@ const METHODS = [
   "TranslateBy",
   "SetPrimaryPart",
   "GetPrimaryPart",
-  // RunService State
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RUNSERVICE - Runtime state queries
+  // ─────────────────────────────────────────────────────────────────────────────
   "IsStudio",
   "IsRunMode",
   "IsEdit",
   "IsRunning",
-  // Workspace Utilities
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // WORKSPACE UTILITIES - Server time and physics metrics
+  // ─────────────────────────────────────────────────────────────────────────────
   "GetServerTimeNow",
   "GetRealPhysicsFPS",
 ] as const;
 
 /**
  * Comprehensive description of all 205 Roblox Studio API methods
- * Format: MethodName(param1,param2?,param3?)
- * Optional params marked with ?, arrays marked with [], numeric ranges shown as min-max
+ *
+ * Format: MethodName(params) -> ReturnType
+ * - Optional params marked with ?
+ * - Arrays marked with []
+ * - Actions return "string" status, queries return data
+ *
+ * Return Type Legend:
+ * - path: Instance full name string (e.g., "game.Workspace.Part")
+ * - path|nil: Path or nil if not found
+ * - paths[]: Array of instance paths
+ * - vec3: Array [x, y, z]
+ * - cframe: Array [12 components]
+ * - {}: Object with named properties
  */
-const DESCRIPTION = `Roblox Studio ops. method + params{}.
-CreateInstance(className,parentPath,name?,properties?) DeleteInstance(path) ClearAllChildren(path) CloneInstance(path,parentPath?) RenameInstance(path,newName)
-GetFullName(path) GetParent(path) IsA(path,className) GetClassName(path) WaitForChild(path,name,timeout?)
-FindFirstAncestor(path,name) FindFirstAncestorOfClass(path,className) FindFirstAncestorWhichIsA(path,className)
-FindFirstChildOfClass(path,className) FindFirstChildWhichIsA(path,className,recursive?) FindFirstDescendant(path,name) GetDebugId(path)
-SetProperty(path,property,value) GetProperty(path,property)
-GetChildren(path) GetDescendants(path) GetDescendantCount(path) GetAncestors(path) FindFirstChild(path,name,recursive?) GetService(service)
-MoveTo(path,position[3]) SetPosition(path,x,y,z) GetPosition(path) SetRotation(path,x,y,z) GetRotation(path)
-SetSize(path,x,y,z) GetSize(path) PivotTo(path,cframe[12]) GetPivot(path)
-SetColor(path,r,g,b) SetTransparency(path,value:0-1) SetMaterial(path,material)
-SetAnchored(path,anchored) SetCanCollide(path,canCollide) CreateConstraint(type,attachment0Path,attachment1Path,properties?)
-SetPhysicalProperties(path,density?,friction?,elasticity?) GetMass(path) ApplyImpulse(path,impulse[3]) ApplyAngularImpulse(path,impulse[3])
-BreakJoints(path) GetJoints(path) GetConnectedParts(path,recursive?) GetTouchingParts(path)
-SetMassless(path,massless) GetVelocity(path) SetVelocity(path,x,y,z) GetAngularVelocity(path) SetAngularVelocity(path,x,y,z) GetCenterOfMass(path)
-SetCollisionGroup(path,group) GetCollisionGroup(path)
-GetAssemblyMass(path) GetAssemblyCenterOfMass(path) GetRootPart(path) SetRootPriority(path,priority) GetRootPriority(path)
-CreateAttachment(parentPath,name?,position?,orientation?) GetAttachmentPosition(path) SetAttachmentPosition(path,x,y,z)
-CreateScript(name,parentPath,source,type?) GetScriptSource(path) SetScriptSource(path,source)
-AppendToScript(path,code) ReplaceScriptLines(path,startLine,endLine,content) InsertScriptLines(path,lineNumber,content) RunConsoleCommand(code)
-GetSelection() SetSelection(paths[]) ClearSelection() AddToSelection(paths[]) GroupSelection(name) UngroupModel(path)
-SetTimeOfDay(time) SetBrightness(brightness) SetAtmosphereDensity(density) SetAtmosphereColor(r,g,b,haze?) SetGlobalShadows(enabled)
-SetFog(start?,fogEnd?,color?) CreateLight(parentPath,type,brightness?,color?) CreateClouds(cover?,density?,color?)
-SetSkybox(skyboxBk?,skyboxDn?,skyboxFt?,skyboxLf?,skyboxRt?,skyboxUp?,sunTextureId?,moonTextureId?)
-CreateBeam(attachment0Path,attachment1Path,color?,width0?,width1?,segments?) CreateTrail(attachment0Path,attachment1Path,lifetime?,color?,widthScale?)
-GetSunDirection() GetMoonDirection() GetMinutesAfterMidnight() SetMinutesAfterMidnight(minutes)
-SetAttribute(path,name,value) GetAttribute(path,name) GetAttributes(path) RemoveAttribute(path,name) AddTag(path,tag) RemoveTag(path,tag) GetTags(path) GetTagged(tag) HasTag(path,tag)
-GetPlayers() GetPlayerInfo(name) GetPlayerPosition(username) TeleportPlayer(username,position[3]) KickPlayer(username,reason?)
-SavePlace() GetPlaceInfo() GetPlaceVersion() GetGameId() SetGravity(gravity) GetGravity()
-ComputePath(start[3],endPos[3],agentRadius?,agentHeight?,canJump?,canClimb?)
-PlaySound(soundId,parentPath?,volume?) StopSound(path)
-FillTerrain(material,minX,minY,minZ,maxX,maxY,maxZ) FillTerrainRegion(min[3],max[3],material) FillBall(center[3],radius,material) FillBlock(position[3],size[3],material)
-FillCylinder(position[3],height,radius,material) FillWedge(position[3],size[3],material) ClearTerrain() GetTerrainInfo() ReplaceMaterial(min[3],max[3],sourceMaterial,targetMaterial)
-SetCameraPosition(x,y,z) SetCameraTarget(x,y,z) SetCameraFocus(path) GetCameraPosition() SetCameraType(cameraType) ZoomCamera(distance) GetCameraType()
-ScreenPointToRay(x,y,depth?) ViewportPointToRay(x,y,depth?) WorldToScreenPoint(x,y,z) WorldToViewportPoint(x,y,z)
-GetDistance(path1,path2) HighlightObject(path,color?,duration?) Chat(message) Undo() Redo() RecordUndo(name) GetCanUndo() GetCanRedo()
-PlayAnimation(trackId,fadeTime?,weight?,speed?) LoadAnimation(humanoidPath,animationId) StopAnimation(trackId,fadeTime?)
-SetCharacterAppearance(playerName,userId?) GetCharacter(playerName)
-GetHumanoidState(humanoidPath) ChangeHumanoidState(humanoidPath,state) TakeDamage(humanoidPath,amount)
-GetAccessories(humanoidPath) AddAccessory(humanoidPath,accessoryPath) RemoveAccessories(humanoidPath) GetHumanoidDescription(humanoidPath)
-CreateGuiElement(className,parentPath,name?,properties?) SetGuiText(path,text) SetGuiSize(path,scaleX,scaleY,offsetX?,offsetY?)
-SetGuiPosition(path,scaleX,scaleY,offsetX?,offsetY?) SetGuiVisible(path,visible) DestroyGuiElement(path)
-FireRemoteEvent(path,playerName?,args[]?) InvokeRemoteFunction(path,playerName,args[]?) CreateRemoteEvent(name,parentPath?) CreateRemoteFunction(name,parentPath?)
-GetDataStore(name,scope?) SetDataStoreValue(storeName,key,value) GetDataStoreValue(storeName,key) RemoveDataStoreValue(storeName,key)
-CreateTween(path,goals,duration?,easingStyle?,easingDirection?,repeatCount?,reverses?,delayTime?,autoPlay?) TweenProperty(path,property,value,duration?)
-Raycast(origin[3],direction[3],filterDescendants[]?,filterType?) RaycastTo(originPath,targetPath,filterDescendants[]?,filterType?)
-Spherecast(position[3],radius,direction[3],filterDescendants[]?,filterType?) Blockcast(position[3],size[3],direction[3],filterDescendants[]?,filterType?)
-GetPartsInPart(path,filterDescendants[]?,filterType?) GetPartBoundsInRadius(position[3],radius,filterDescendants[]?) GetPartBoundsInBox(position[3],size[3],filterDescendants[]?)
-CreateWeld(part0Path,part1Path) CreateMotor6D(part0Path,part1Path,name?)
-CreateParticleEmitter(parentPath,properties?) EmitParticles(path,count?)
-ApplyDecal(parentPath,textureId,face?) ApplyTexture(parentPath,textureId,face?)
-InsertAsset(assetId,parentPath?) InsertMesh(parentPath,meshId,textureId?,name?)
-CreateTeam(name,color?,autoAssignable?) SetPlayerTeam(playerName,teamName) GetPlayerTeam(playerName)
-CreateLeaderstat(playerName,statName,valueType?,initialValue?) SetLeaderstatValue(playerName,statName,value) GetLeaderstatValue(playerName,statName)
-GetBoundingBox(path) GetExtentsSize(path) ScaleTo(path,scale) GetScale(path) TranslateBy(path,offset[3]) SetPrimaryPart(path,primaryPartPath) GetPrimaryPart(path)
-IsStudio() IsRunMode() IsEdit() IsRunning() GetServerTimeNow() GetRealPhysicsFPS()`;
+const DESCRIPTION = `Roblox Studio API (205 methods). Call with method + params{}.
+
+INSTANCE: CreateInstance(className,parentPath,name?,properties?)->path DeleteInstance(path)->"Deleted" ClearAllChildren(path)->"Cleared" CloneInstance(path,parentPath?)->path RenameInstance(path,newName)->path
+
+DISCOVERY: GetFullName(path)->path GetParent(path)->path|nil IsA(path,className)->bool GetClassName(path)->string WaitForChild(path,name,timeout?)->path|nil
+FindFirstAncestor(path,name)->path|nil FindFirstAncestorOfClass(path,className)->path|nil FindFirstAncestorWhichIsA(path,className)->path|nil
+FindFirstChildOfClass(path,className)->path|nil FindFirstChildWhichIsA(path,className,recursive?)->path|nil FindFirstDescendant(path,name)->path|nil GetDebugId(path)->string
+
+PROPERTIES: SetProperty(path,property,value)->string GetProperty(path,property)->any
+
+HIERARCHY: GetChildren(path)->names[] GetDescendants(path)->paths[] GetDescendantCount(path)->number GetAncestors(path)->paths[] FindFirstChild(path,name,recursive?)->path|nil GetService(service)->string
+
+TRANSFORMS: MoveTo(path,position[3])->"Moved" SetPosition(path,x,y,z)->"Set" GetPosition(path)->vec3 SetRotation(path,x,y,z)->"Set" GetRotation(path)->vec3
+SetSize(path,x,y,z)->"Set" GetSize(path)->vec3 PivotTo(path,cframe[12])->"Pivoted" GetPivot(path)->cframe
+
+APPEARANCE: SetColor(path,r,g,b)->"Set" SetTransparency(path,value:0-1)->"Set" SetMaterial(path,material)->"Set"
+
+PHYSICS: SetAnchored(path,anchored)->"Set" SetCanCollide(path,canCollide)->"Set" CreateConstraint(type,attachment0Path,attachment1Path,properties?)->path
+SetPhysicalProperties(path,density?,friction?,elasticity?)->"Set" GetMass(path)->number ApplyImpulse(path,impulse[3])->"Applied" ApplyAngularImpulse(path,impulse[3])->"Applied"
+BreakJoints(path)->"Broken" GetJoints(path)->paths[] GetConnectedParts(path,recursive?)->paths[] GetTouchingParts(path)->paths[]
+SetMassless(path,massless)->"Set" GetVelocity(path)->vec3 SetVelocity(path,x,y,z)->"Set" GetAngularVelocity(path)->vec3 SetAngularVelocity(path,x,y,z)->"Set" GetCenterOfMass(path)->vec3
+SetCollisionGroup(path,group)->"Set" GetCollisionGroup(path)->string
+
+ASSEMBLY: GetAssemblyMass(path)->number GetAssemblyCenterOfMass(path)->vec3 GetRootPart(path)->path|nil SetRootPriority(path,priority)->"Set" GetRootPriority(path)->number
+
+ATTACHMENTS: CreateAttachment(parentPath,name?,position?,orientation?)->path GetAttachmentPosition(path)->vec3 SetAttachmentPosition(path,x,y,z)->"Set"
+
+SCRIPTING: CreateScript(name,parentPath,source,type?)->path GetScriptSource(path)->string SetScriptSource(path,source)->"Set"
+AppendToScript(path,code)->"Appended" ReplaceScriptLines(path,startLine,endLine,content)->"Replaced" InsertScriptLines(path,lineNumber,content)->"Inserted" RunConsoleCommand(code)->any
+
+SELECTION: GetSelection()->paths[] SetSelection(paths[])->"Set" ClearSelection()->"Cleared" AddToSelection(paths[])->"Added" GroupSelection(name)->path UngroupModel(path)->"Ungrouped"
+
+ENVIRONMENT: SetTimeOfDay(time)->"Set" SetBrightness(brightness)->"Set" SetAtmosphereDensity(density)->"Set" SetAtmosphereColor(r,g,b,haze?)->"Set" SetGlobalShadows(enabled)->"Set"
+SetFog(start?,fogEnd?,color?)->"Set" CreateLight(parentPath,type,brightness?,color?)->path CreateClouds(cover?,density?,color?)->path
+SetSkybox(skyboxBk?,skyboxDn?,skyboxFt?,skyboxLf?,skyboxRt?,skyboxUp?,sunTextureId?,moonTextureId?)->path
+CreateBeam(attachment0Path,attachment1Path,color?,width0?,width1?,segments?)->path CreateTrail(attachment0Path,attachment1Path,lifetime?,color?,widthScale?)->path
+GetSunDirection()->vec3 GetMoonDirection()->vec3 GetMinutesAfterMidnight()->number SetMinutesAfterMidnight(minutes)->"Set"
+
+ATTRIBUTES: SetAttribute(path,name,value)->"Set" GetAttribute(path,name)->any GetAttributes(path)->{} RemoveAttribute(path,name)->"Removed"
+AddTag(path,tag)->"Added" RemoveTag(path,tag)->"Removed" GetTags(path)->string[] GetTagged(tag)->paths[] HasTag(path,tag)->bool
+
+PLAYERS: GetPlayers()->names[] GetPlayerInfo(name)->{UserId,DisplayName,Team,Character} GetPlayerPosition(username)->vec3 TeleportPlayer(username,position[3])->"Teleported" KickPlayer(username,reason?)->"Kicked"
+
+PLACE: SavePlace()->"Save triggered" GetPlaceInfo()->{PlaceId,PlaceVersion,GameId,CreatorId} GetPlaceVersion()->number GetGameId()->number SetGravity(gravity)->"Set" GetGravity()->number
+
+PATHFINDING: ComputePath(start[3],endPos[3],agentRadius?,agentHeight?,canJump?,canClimb?)->{status,waypoints[{position,action}]}
+
+AUDIO: PlaySound(soundId,parentPath?,volume?)->path StopSound(path)->"Stopped"
+
+TERRAIN: FillTerrain(material,minX,minY,minZ,maxX,maxY,maxZ)->"Filled" FillTerrainRegion(min[3],max[3],material)->"Filled" FillBall(center[3],radius,material)->"Filled" FillBlock(position[3],size[3],material)->"Filled"
+FillCylinder(position[3],height,radius,material)->"Filled" FillWedge(position[3],size[3],material)->"Filled" ClearTerrain()->"Cleared" GetTerrainInfo()->{maxExtents,waterWaveSize,waterWaveSpeed} ReplaceMaterial(min[3],max[3],sourceMaterial,targetMaterial)->"Replaced"
+
+CAMERA: SetCameraPosition(x,y,z)->"Set" SetCameraTarget(x,y,z)->"Set" SetCameraFocus(path)->"Set" GetCameraPosition()->vec3 SetCameraType(cameraType)->"Set" ZoomCamera(distance)->"Zoomed" GetCameraType()->string
+ScreenPointToRay(x,y,depth?)->{origin,direction} ViewportPointToRay(x,y,depth?)->{origin,direction} WorldToScreenPoint(x,y,z)->{position,onScreen} WorldToViewportPoint(x,y,z)->{position,onScreen}
+
+UTILITIES: GetDistance(path1,path2)->number HighlightObject(path,color?,duration?)->path Chat(message)->"Sent"|"Chat not available"
+
+HISTORY: Undo()->"Undone" Redo()->"Redone" RecordUndo(name)->"Recorded" GetCanUndo()->bool GetCanRedo()->bool
+
+ANIMATION: PlayAnimation(trackId,fadeTime?,weight?,speed?)->"Playing" LoadAnimation(humanoidPath,animationId)->trackId StopAnimation(trackId,fadeTime?)->"Stopped"
+SetCharacterAppearance(playerName,userId?)->"Applied" GetCharacter(playerName)->path|nil
+
+HUMANOID: GetHumanoidState(humanoidPath)->HumanoidStateType ChangeHumanoidState(humanoidPath,state)->"Changed" TakeDamage(humanoidPath,amount)->"Damaged"
+GetAccessories(humanoidPath)->paths[] AddAccessory(humanoidPath,accessoryPath)->"Added" RemoveAccessories(humanoidPath)->"Removed"
+GetHumanoidDescription(humanoidPath)->{HeadColor,BodyTypeScale,HeadScale,HeightScale,WidthScale,DepthScale}|nil
+
+GUI: CreateGuiElement(className,parentPath,name?,properties?)->path SetGuiText(path,text)->"Set" SetGuiSize(path,scaleX,scaleY,offsetX?,offsetY?)->"Set"
+SetGuiPosition(path,scaleX,scaleY,offsetX?,offsetY?)->"Set" SetGuiVisible(path,visible)->"Set" DestroyGuiElement(path)->"Destroyed"
+
+NETWORKING: FireRemoteEvent(path,playerName?,args[]?)->"Fired" InvokeRemoteFunction(path,playerName,args[]?)->any CreateRemoteEvent(name,parentPath?)->path CreateRemoteFunction(name,parentPath?)->path
+
+DATASTORE: GetDataStore(name,scope?)->"DataStore:name" SetDataStoreValue(storeName,key,value)->"Set" GetDataStoreValue(storeName,key)->any RemoveDataStoreValue(storeName,key)->"Removed"
+
+TWEEN: CreateTween(path,goals,duration?,easingStyle?,easingDirection?,repeatCount?,reverses?,delayTime?,autoPlay?)->tweenId TweenProperty(path,property,value,duration?)->"Tweening"
+
+RAYCASTING: Raycast(origin[3],direction[3],filterDescendants[]?,filterType?)->{instance,position,normal,material,distance}|nil RaycastTo(originPath,targetPath,filterDescendants[]?,filterType?)->{instance,position,distance}|nil
+Spherecast(position[3],radius,direction[3],filterDescendants[]?,filterType?)->{instance,position,normal,distance}|nil Blockcast(position[3],size[3],direction[3],filterDescendants[]?,filterType?)->{instance,position,normal,distance}|nil
+GetPartsInPart(path,filterDescendants[]?,filterType?)->paths[] GetPartBoundsInRadius(position[3],radius,filterDescendants[]?)->paths[] GetPartBoundsInBox(position[3],size[3],filterDescendants[]?)->paths[]
+
+CONSTRAINTS: CreateWeld(part0Path,part1Path)->path CreateMotor6D(part0Path,part1Path,name?)->path
+
+PARTICLES: CreateParticleEmitter(parentPath,properties?)->path EmitParticles(path,count?)->"Emitted"
+
+MATERIALS: ApplyDecal(parentPath,textureId,face?)->path ApplyTexture(parentPath,textureId,face?)->path
+
+MARKETPLACE: InsertAsset(assetId,parentPath?)->"Inserted" InsertMesh(parentPath,meshId,textureId?,name?)->path
+
+TEAMS: CreateTeam(name,color?,autoAssignable?)->path SetPlayerTeam(playerName,teamName)->"Set" GetPlayerTeam(playerName)->string|nil
+
+LEADERSTATS: CreateLeaderstat(playerName,statName,valueType?,initialValue?)->path SetLeaderstatValue(playerName,statName,value)->"Set" GetLeaderstatValue(playerName,statName)->any
+
+MODEL: GetBoundingBox(path)->{cframe,size} GetExtentsSize(path)->vec3 ScaleTo(path,scale)->"Scaled" GetScale(path)->number TranslateBy(path,offset[3])->"Translated" SetPrimaryPart(path,primaryPartPath)->"Set" GetPrimaryPart(path)->path|nil
+
+RUNSERVICE: IsStudio()->bool IsRunMode()->bool IsEdit()->bool IsRunning()->bool GetServerTimeNow()->number GetRealPhysicsFPS()->number`;
 
 /**
  * Register all Roblox Studio tools with the FastMCP server

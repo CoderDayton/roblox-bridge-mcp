@@ -1,10 +1,24 @@
--- Audio, tween, networking, datastore, and marketplace tools
+--------------------------------------------------------------------------------
+-- Async & Service Tools
+-- Provides methods for audio, tweening, networking, data storage, and marketplace.
+-- Handles operations that may involve async calls or external services.
+--
+-- Methods:
+--   Audio: PlaySound, StopSound
+--   Tweening: CreateTween, TweenProperty
+--   Networking: CreateRemoteEvent, CreateRemoteFunction, FireRemoteEvent, InvokeRemoteFunction
+--   DataStore: GetDataStore, SetDataStoreValue, GetDataStoreValue, RemoveDataStoreValue
+--   Marketplace: InsertAsset, InsertMesh
+--
+-- Note: DataStore operations require API access to be enabled in Studio settings.
+-- Note: Tweens are stored in memory and referenced by tweenId.
+--------------------------------------------------------------------------------
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 
 local Tools = {}
 
--- State for active tweens
+-- State for active tweens (tweenId -> Tween)
 local activeTweens = {}
 
 -- Audio

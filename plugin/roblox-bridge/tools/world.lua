@@ -1,4 +1,22 @@
--- Terrain, camera, history, place, attributes, and tags tools
+--------------------------------------------------------------------------------
+-- World & Environment Tools
+-- Provides methods for terrain, camera, history, place info, attributes, and tags.
+-- Handles pathfinding, world settings, and runtime state queries.
+--
+-- Methods:
+--   Terrain: GetTerrainInfo, FillTerrainRegion, ClearTerrain, FillBall, FillBlock, FillCylinder, FillWedge, FillTerrain, ReplaceMaterial
+--   Camera: SetCameraPosition, SetCameraTarget, SetCameraFocus, SetCameraType, GetCameraType, ZoomCamera, GetCameraPosition
+--   Camera Coords: ScreenPointToRay, ViewportPointToRay, WorldToScreenPoint, WorldToViewportPoint
+--   Lighting Time: GetSunDirection, GetMoonDirection, GetMinutesAfterMidnight, SetMinutesAfterMidnight
+--   History: RecordUndo, Undo, Redo, GetCanUndo, GetCanRedo
+--   Place: GetPlaceInfo, GetPlaceVersion, GetGameId, SavePlace
+--   Attributes: SetAttribute, GetAttribute, GetAttributes, RemoveAttribute
+--   Tags: AddTag, RemoveTag, GetTags, GetTagged, HasTag
+--   World Settings: SetGravity, GetGravity
+--   Pathfinding: ComputePath (AI navigation)
+--   RunService: IsStudio, IsRunMode, IsEdit, IsRunning
+--   Workspace: GetServerTimeNow, GetRealPhysicsFPS, Chat
+--------------------------------------------------------------------------------
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 

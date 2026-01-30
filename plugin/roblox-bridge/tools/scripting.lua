@@ -1,4 +1,15 @@
--- Script creation, source manipulation, and console execution
+--------------------------------------------------------------------------------
+-- Scripting Tools
+-- Provides methods for script creation, source code manipulation, and execution.
+-- Supports Script, LocalScript, and ModuleScript types.
+--
+-- Methods:
+--   Creation: CreateScript (creates Script/LocalScript/ModuleScript)
+--   Source: GetScriptSource, SetScriptSource, AppendToScript, ReplaceScriptLines, InsertScriptLines
+--   Execution: RunConsoleCommand (sandboxed Lua execution)
+--
+-- Note: RunConsoleCommand executes in a sandboxed environment with limited API access.
+--------------------------------------------------------------------------------
 local Services = require(script.Parent.Parent.utils.services)
 local Path = require(script.Parent.Parent.utils.path)
 local Sandbox = require(script.Parent.Parent.utils.sandbox)
