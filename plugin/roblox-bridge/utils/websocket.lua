@@ -47,6 +47,7 @@ function WebSocket.create(config)
 		isEnabled = false,
 		serverVersion = nil,
 		retryInterval = config.RETRY_INTERVAL,
+		retryCount = 0,
 		lastPingTime = 0,
 	}
 
@@ -131,6 +132,7 @@ function WebSocket.create(config)
 					state.isConnected = true
 					isConnecting = false
 					state.retryInterval = config.RETRY_INTERVAL
+					state.retryCount = 0
 					task_spawn(function()
 						callbacks.onConnected(config.BASE_PORT)
 					end)
@@ -176,8 +178,9 @@ function WebSocket.create(config)
 
 			task_spawn(callbacks.onDisconnected)
 
-			-- Schedule reconnect if still enabled
-			if state.isEnabled and not retryScheduled then
+			-- Schedule reconnect if still enabled and under retry limit
+			state.retryCount = state.retryCount + 1
+			if state.isEnabled and not retryScheduled and state.retryCount <= config.MAX_RETRIES then
 				retryScheduled = true
 				task_delay(state.retryInterval, function()
 					retryScheduled = false
@@ -187,6 +190,8 @@ function WebSocket.create(config)
 						connect()
 					end
 				end)
+			elseif state.retryCount > config.MAX_RETRIES then
+				print("[MCP] Max retries reached, stopping reconnection attempts")
 			end
 		end)
 

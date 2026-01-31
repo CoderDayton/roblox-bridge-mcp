@@ -16,25 +16,27 @@ local CONFIG = {
 	PORT_RANGE = 10,
 	RETRY_INTERVAL = 2,
 	MAX_RETRY_INTERVAL = 30,
+	MAX_RETRIES = 10,
 }
 
 --------------------------------------------------------------------------------
 -- Load Modules
 --------------------------------------------------------------------------------
 
-local Services = require(script.utils.services)
-local Path = require(script.utils.path)
-local UI = require(script.utils.ui)
-local WebSocket = require(script.utils.websocket)
+local Parent = script.Parent
+local Services = require(Parent.utils.services)
+local Path = require(Parent.utils.path)
+local UI = require(Parent.utils.ui)
+local WebSocket = require(Parent.utils.websocket)
 
 -- Tool modules
-local InstanceTools = require(script.tools.instance)
-local SpatialTools = require(script.tools.spatial)
-local VisualTools = require(script.tools.visual)
-local ScriptingTools = require(script.tools.scripting)
-local PlayersTools = require(script.tools.players)
-local WorldTools = require(script.tools.world)
-local AsyncTools = require(script.tools.async)
+local InstanceTools = require(Parent.tools.instance)
+local SpatialTools = require(Parent.tools.spatial)
+local VisualTools = require(Parent.tools.visual)
+local ScriptingTools = require(Parent.tools.scripting)
+local PlayersTools = require(Parent.tools.players)
+local WorldTools = require(Parent.tools.world)
+local AsyncTools = require(Parent.tools.async)
 
 --------------------------------------------------------------------------------
 -- Merge Tools
