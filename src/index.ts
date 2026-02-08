@@ -7,7 +7,7 @@ import { config } from "./config";
 
 const server = new FastMCP({
   name: "roblox-bridge-mcp",
-  version: config.version,
+  version: config.version as `${number}.${number}.${number}`,
 });
 
 // Register all Roblox tools and resources

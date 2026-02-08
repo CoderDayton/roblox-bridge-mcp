@@ -44,6 +44,13 @@ lerna-debug.log*
 # Reference and documentation (project-specific)
 reference-project/
 reference-docs/
+__references__/
+
+# Generated build artifacts
+scripts/install-plugin.lua
+
+# WSL artifacts
+*.Zone.Identifier
 
 # Agent configuration
 AGENTS.md
