@@ -109,7 +109,7 @@ end
 
 function Tools.CreateClouds(p)
 	local existing = workspace:FindFirstChildOfClass("Clouds")
-	if existing then existing:Destroy() end
+	if existing then existing.Parent = nil end
 	local clouds = Instance.new("Clouds")
 	if p.cover then clouds.Cover = p.cover end
 	if p.density then clouds.Density = p.density end
@@ -261,7 +261,8 @@ function Tools.SetGuiVisible(p)
 end
 
 function Tools.DestroyGuiElement(p)
-	Path.require(p.path):Destroy()
+	-- Use Parent = nil (not :Destroy()) so ChangeHistoryService can undo this
+	Path.require(p.path).Parent = nil
 	return "Destroyed"
 end
 

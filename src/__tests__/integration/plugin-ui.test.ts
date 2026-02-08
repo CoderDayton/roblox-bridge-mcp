@@ -212,9 +212,9 @@ describe("Plugin UI Structure", () => {
       expect(content).toMatch(/function api\.setConnecting\(/);
     });
 
-    test("API has addCommand method", () => {
+    test("API has addCommand method accepting data table", () => {
       const content = readLua(widgetPath);
-      expect(content).toMatch(/function api\.addCommand\(/);
+      expect(content).toMatch(/function api\.addCommand\(data\)/);
     });
 
     test("API has clearHistory method", () => {
@@ -485,9 +485,27 @@ describe("UI Components", () => {
       expect(hasCreateFunction(content, "HistoryPanel")).toBe(true);
     });
 
-    test("has addEntry method", () => {
+    test("has addEntry method accepting data table", () => {
       const content = readLua(historyPanelPath);
-      expect(content).toMatch(/function api\.addEntry\(/);
+      expect(content).toMatch(/function api\.addEntry\(data\)/);
+    });
+
+    test("tracks waypoint count for undoable entries", () => {
+      const content = readLua(historyPanelPath);
+      expect(content).toMatch(/waypointCount/);
+    });
+
+    test("has contextual menu with entry-type-aware items", () => {
+      const content = readLua(historyPanelPath);
+      expect(content).toMatch(/data\.hasWaypoint/);
+      expect(content).toMatch(/CopyError/);
+      expect(content).toMatch(/CopySummary/);
+    });
+
+    test("Undo to here only counts entries with waypoints", () => {
+      const content = readLua(historyPanelPath);
+      expect(content).toMatch(/info\.hasWaypoint/);
+      expect(content).toMatch(/info\.index >= targetIndex/);
     });
 
     test("has clear method", () => {
@@ -548,10 +566,245 @@ describe("UI Integration", () => {
     expect(content).toMatch(/ui\.setConnectionState\(/);
   });
 
-  test("init.server.lua uses addCommand API", () => {
+  test("init.server.lua uses addCommand API with data table", () => {
     const initServerPath = join(PLUGIN_ROOT, "init.server.lua");
     const content = readLua(initServerPath);
-    expect(content).toMatch(/ui\.addCommand\(/);
+    expect(content).toMatch(/ui\.addCommand\(\{/);
+  });
+
+  test("init.server.lua has command classification tables", () => {
+    const initServerPath = join(PLUGIN_ROOT, "init.server.lua");
+    const content = readLua(initServerPath);
+    expect(content).toMatch(/local READONLY\s*=/);
+    expect(content).toMatch(/local NO_WAYPOINT\s*=/);
+  });
+
+  test("init.server.lua sets centralized waypoints for mutations", () => {
+    const initServerPath = join(PLUGIN_ROOT, "init.server.lua");
+    const content = readLua(initServerPath);
+    expect(content).toMatch(/ChangeHistoryService:SetWaypoint\("MCP " \.\. method\)/);
+    expect(content).toMatch(/hasWaypoint = true/);
+  });
+
+  test("init.server.lua extracts params summary for history display", () => {
+    const initServerPath = join(PLUGIN_ROOT, "init.server.lua");
+    const content = readLua(initServerPath);
+    expect(content).toMatch(/getParamsSummary/);
+    expect(content).toMatch(/summary = summary/);
+  });
+});
+
+describe("Tool Safety Patterns", () => {
+  const TOOLS_ROOT = join(PLUGIN_ROOT, "tools");
+  const toolFiles = [
+    "instance.lua",
+    "spatial.lua",
+    "visual.lua",
+    "world.lua",
+    "scripting.lua",
+    "players.lua",
+    "async.lua",
+  ];
+
+  test("no inline SetWaypoint calls in tool files (centralized in init.server.lua)", () => {
+    for (const file of toolFiles) {
+      const content = readLua(join(TOOLS_ROOT, file));
+      const lines = content.split("\n");
+      for (const line of lines) {
+        if (line.trim().startsWith("--")) continue; // skip comments
+        if (line.includes("SetWaypoint(")) {
+          // Only world.lua RecordUndo tool is allowed (it IS the waypoint tool)
+          expect(file).toBe("world.lua");
+          expect(line).toMatch(/SetWaypoint\(p\.name\)/);
+        }
+      }
+    }
+  });
+
+  test("tool files use Parent = nil instead of :Destroy() for undoable deletions", () => {
+    // These files should NOT have :Destroy() on user content
+    const safeFiles = ["instance.lua", "visual.lua"];
+    for (const file of safeFiles) {
+      const content = readLua(join(TOOLS_ROOT, file));
+      const lines = content.split("\n");
+      for (const line of lines) {
+        if (line.trim().startsWith("--")) continue; // skip comments
+        if (line.includes(":Destroy()")) {
+          // Only InsertAsset wrapper model Destroy is acceptable
+          expect(line).not.toMatch(/Path\.require.*:Destroy/);
+        }
+      }
+    }
+  });
+
+  test("DeleteInstance uses Parent = nil pattern", () => {
+    const content = readLua(join(TOOLS_ROOT, "instance.lua"));
+    expect(content).toMatch(/function Tools\.DeleteInstance/);
+    expect(content).toMatch(/\.Parent = nil/);
+  });
+
+  test("DestroyGuiElement uses Parent = nil pattern", () => {
+    const content = readLua(join(TOOLS_ROOT, "visual.lua"));
+    expect(content).toMatch(/function Tools\.DestroyGuiElement/);
+    expect(content).toMatch(/\.Parent = nil/);
+  });
+});
+
+describe("Command Classification Completeness", () => {
+  const initServerPath = join(PLUGIN_ROOT, "init.server.lua");
+
+  test("READONLY table includes all query method prefixes", () => {
+    const content = readLua(initServerPath);
+    // All Get* methods should be in READONLY
+    const getMethodsInReadonly = [
+      "GetFullName",
+      "GetParent",
+      "GetClassName",
+      "GetProperty",
+      "GetChildren",
+      "GetDescendants",
+      "GetPosition",
+      "GetRotation",
+      "GetSize",
+      "GetMass",
+      "GetCameraPosition",
+      "GetPlaceInfo",
+      "GetAttribute",
+      "GetTags",
+      "GetScriptSource",
+      "GetPlayers",
+      "GetDataStoreValue",
+    ];
+    for (const method of getMethodsInReadonly) {
+      expect(content).toContain(`${method}=1`);
+    }
+  });
+
+  test("NO_WAYPOINT table includes script source methods", () => {
+    const content = readLua(initServerPath);
+    // ChangeHistoryService does NOT track Script.Source changes
+    expect(content).toContain("SetScriptSource=1");
+    expect(content).toContain("AppendToScript=1");
+    expect(content).toContain("ReplaceScriptLines=1");
+    expect(content).toContain("InsertScriptLines=1");
+  });
+
+  test("NO_WAYPOINT table includes player runtime methods", () => {
+    const content = readLua(initServerPath);
+    expect(content).toContain("SetPlayerTeam=1");
+    expect(content).toContain("SetCharacterAppearance=1");
+    expect(content).toContain("CreateLeaderstat=1");
+    expect(content).toContain("AddAccessory=1");
+  });
+
+  test("NO_WAYPOINT table includes physics runtime methods", () => {
+    const content = readLua(initServerPath);
+    expect(content).toContain("ApplyImpulse=1");
+    expect(content).toContain("ApplyAngularImpulse=1");
+    expect(content).toContain("SetVelocity=1");
+    expect(content).toContain("SetAngularVelocity=1");
+  });
+
+  test("NO_WAYPOINT table includes camera methods", () => {
+    const content = readLua(initServerPath);
+    expect(content).toContain("SetCameraPosition=1");
+    expect(content).toContain("SetCameraTarget=1");
+    expect(content).toContain("SetCameraType=1");
+  });
+
+  test("getParamsSummary checks property before generic path", () => {
+    const content = readLua(initServerPath);
+    // The property+path check must come BEFORE the generic path check
+    const propertyCheckIdx = content.indexOf("params.property and params.path");
+    const genericPathIdx = content.indexOf("local path = params.path");
+    expect(propertyCheckIdx).toBeGreaterThan(-1);
+    expect(genericPathIdx).toBeGreaterThan(-1);
+    expect(propertyCheckIdx).toBeLessThan(genericPathIdx);
+  });
+
+  test("getParamsSummary enriches attribute and tag summaries", () => {
+    const content = readLua(initServerPath);
+    expect(content).toMatch(/params\.tag or params\.name/);
+  });
+
+  test("getParamsSummary has fallbacks for constraints and scalars", () => {
+    const content = readLua(initServerPath);
+    expect(content).toContain("params.attachment0Path");
+    expect(content).toContain("params.part0Path");
+    expect(content).toContain("params.time");
+    expect(content).toContain("params.material");
+    expect(content).toContain("params.gravity");
+  });
+});
+
+describe("Widget Uptime Tracking", () => {
+  const widgetPath = join(UI_ROOT, "widget.lua");
+
+  test("uptime tracks connection duration, not plugin lifetime", () => {
+    const content = readLua(widgetPath);
+    expect(content).toMatch(/connectedAt/);
+    // Should NOT have startTime for uptime
+    expect(content).not.toMatch(/startTime/);
+  });
+
+  test("uptime resets to 00:00:00 on disconnect", () => {
+    const content = readLua(widgetPath);
+    expect(content).toMatch(/connectedAt = nil/);
+    expect(content).toMatch(/setUptime.*00:00:00/);
+  });
+
+  test("uptime starts counting on connection", () => {
+    const content = readLua(widgetPath);
+    expect(content).toMatch(/connectedAt = os_clock\(\)/);
+  });
+
+  test("uptime ticker only updates when connected", () => {
+    const content = readLua(widgetPath);
+    // Should check connectedAt before computing elapsed
+    expect(content).toMatch(/local start = connectedAt/);
+    expect(content).toMatch(/if start then/);
+  });
+});
+
+describe("History Panel Data Model", () => {
+  const historyPanelPath = join(COMPONENTS_ROOT, "history-panel.lua");
+
+  test("entries store enriched data: summary, error, hasWaypoint", () => {
+    const content = readLua(historyPanelPath);
+    expect(content).toMatch(/summary = summary/);
+    expect(content).toMatch(/error = errorMsg/);
+    expect(content).toMatch(/hasWaypoint = hasWaypoint/);
+  });
+
+  test("entry height adjusts for summary subtitle", () => {
+    const content = readLua(historyPanelPath);
+    expect(content).toMatch(/hasSummary and 50 or 36/);
+  });
+
+  test("status bar color distinguishes mutating, read-only, and error", () => {
+    const content = readLua(historyPanelPath);
+    // Three-way color: error (red), waypoint (green), read-only (gray)
+    expect(content).toMatch(/Theme\.COLORS\.error/);
+    expect(content).toMatch(/Theme\.COLORS\.success/);
+    expect(content).toMatch(/Theme\.COLORS\.bgSubtle/);
+  });
+
+  test("read-only entries use dimmed text", () => {
+    const content = readLua(historyPanelPath);
+    expect(content).toMatch(
+      /hasWaypoint and Theme\.COLORS\.textPrimary or Theme\.COLORS\.textSecondary/
+    );
+  });
+
+  test("count label shows visible entries from historyList", () => {
+    const content = readLua(historyPanelPath);
+    expect(content).toMatch(/#historyList/);
+  });
+
+  test("eviction decrements waypointCount for removed entries", () => {
+    const content = readLua(historyPanelPath);
+    expect(content).toMatch(/oldData and oldData\.hasWaypoint/);
+    expect(content).toMatch(/waypointCount = waypointCount - 1/);
   });
 });
 

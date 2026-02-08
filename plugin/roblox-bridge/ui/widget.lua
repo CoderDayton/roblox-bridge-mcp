@@ -19,7 +19,6 @@ local HistoryPanel = require(script.Parent.components["history-panel"])
 local Widget = {}
 
 function Widget.create(pluginRef, props)
-	local startTime = os_clock()
 	local version = props.version or "1.0.0"
 
 	-- Create dock widget (min 280px width for usability)
@@ -149,14 +148,30 @@ function Widget.create(pluginRef, props)
 		end
 	end)
 
-	-- Uptime ticker
+	-- Uptime ticker (tracks connection duration, not plugin lifetime)
+	local connectedAt = nil -- os_clock() timestamp when connection established
+
+	store:subscribe(function(changed, state)
+		if changed.connected ~= nil then
+			if state.connected then
+				connectedAt = os_clock()
+			else
+				connectedAt = nil
+				statsPanel.setUptime("00:00:00")
+			end
+		end
+	end)
+
 	task.spawn(function()
 		while true do
-			local elapsed = math_floor(os_clock() - startTime)
-			local h = math_floor(elapsed / 3600)
-			local m = math_floor((elapsed % 3600) / 60)
-			local s = elapsed % 60
-			statsPanel.setUptime(string.format("%02d:%02d:%02d", h, m, s))
+			local start = connectedAt
+			if start then
+				local elapsed = math_floor(os_clock() - start)
+				local h = math_floor(elapsed / 3600)
+				local m = math_floor((elapsed % 3600) / 60)
+				local s = elapsed % 60
+				statsPanel.setUptime(string.format("%02d:%02d:%02d", h, m, s))
+			end
 			task.wait(1)
 		end
 	end)
@@ -193,8 +208,8 @@ function Widget.create(pluginRef, props)
 		store:set({ isConnecting = isConnecting })
 	end
 
-	function api.addCommand(method, success)
-		local count = historyPanel.addEntry(method, success)
+	function api.addCommand(data)
+		local count = historyPanel.addEntry(data)
 		statsPanel.setCommands(count)
 	end
 

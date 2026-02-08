@@ -2,12 +2,13 @@
 --------------------------------------------------------------------------------
 -- History Panel Component
 -- Scannable list, clear success/error states, temporal context
--- Right-click context menu for undo, copy, and more
+-- Right-click context menu adapts to entry type (mutating/read-only/failed)
 --------------------------------------------------------------------------------
 
 local os_date = os.date
 local table_insert = table.insert
 local table_remove = table.remove
+local tostring = tostring
 local ipairs = ipairs
 local pcall = pcall
 
@@ -20,8 +21,9 @@ local MAX_ENTRIES = 100
 
 function HistoryPanel.create(pluginRef)
 	local entryCount = 0
-	local historyList = {}  -- Stores {frame, method, success, index, timestamp}
-	local entryData = {}    -- Maps frame to data for quick lookup
+	local waypointCount = 0
+	local historyList = {} -- Stores entry Frame references, newest first
+	local entryData = {} -- Maps Frame → data for quick lookup
 
 	-- Panel fills remaining space
 	local panel = Instance.new("Frame")
@@ -47,7 +49,7 @@ function HistoryPanel.create(pluginRef)
 	headerPadding.Parent = header
 
 	local title = Instance.new("TextLabel")
-	title.Size = UDim2.new(0.6, 0, 1, 0)
+	title.Size = UDim2.new(0.5, 0, 1, 0)
 	title.BackgroundTransparency = 1
 	title.Text = "History"
 	title.TextColor3 = Theme.COLORS.textPrimary
@@ -58,8 +60,8 @@ function HistoryPanel.create(pluginRef)
 
 	local countLabel = Instance.new("TextLabel")
 	countLabel.Name = "Count"
-	countLabel.Size = UDim2.new(0.4, 0, 1, 0)
-	countLabel.Position = UDim2.new(0.6, 0, 0, 0)
+	countLabel.Size = UDim2.new(0.5, 0, 1, 0)
+	countLabel.Position = UDim2.new(0.5, 0, 0, 0)
 	countLabel.BackgroundTransparency = 1
 	countLabel.Text = "0 commands"
 	countLabel.TextColor3 = Theme.COLORS.textTertiary
@@ -95,8 +97,14 @@ function HistoryPanel.create(pluginRef)
 	listLayout.Parent = scrollFrame
 
 	local function updateCount()
-		local suffix = entryCount == 1 and " command" or " commands"
-		countLabel.Text = tostring(entryCount) .. suffix
+		local visible = #historyList
+		local suffix = visible == 1 and " command" or " commands"
+		if waypointCount > 0 then
+			countLabel.Text = tostring(visible) .. suffix
+				.. " · " .. tostring(waypointCount) .. " undoable"
+		else
+			countLabel.Text = tostring(visible) .. suffix
+		end
 	end
 
 	-- Empty state
@@ -115,24 +123,49 @@ function HistoryPanel.create(pluginRef)
 		frame = panel,
 	}
 
-	--------------------------------------------------------------------------------
-	-- Show right-click context menu for a history entry
-	-- Provides undo, copy, and history management actions
-	-- @param entry Frame - The history entry frame that was right-clicked
-	-- @param data table - Entry metadata {method: string, success: boolean, index: number, timestamp: string}
-	-- @private
-	--------------------------------------------------------------------------------
+	----------------------------------------------------------------------------
+	-- Context Menu
+	-- Adapts items based on entry type: mutating/read-only, success/failure
+	----------------------------------------------------------------------------
 	local function showContextMenu(entry, data)
-		local menu = pluginRef:CreatePluginMenu("HistoryContextMenu", "Command Options")
+		local menu = pluginRef:CreatePluginMenu("HistoryContextMenu", data.method)
 
-		-- Add menu items
-		local undoToHere = menu:AddNewAction("UndoToHere", "Undo to here", "rbxasset://textures/StudioToolbox/AssetPreview/undo_button.png")
-		local copyMethod = menu:AddNewAction("CopyMethod", "Copy method name")
+		-- Always: copy method name
+		menu:AddNewAction("CopyMethod", "Copy method name")
+
+		-- Copy target path if summary available
+		if data.summary and data.summary ~= "" then
+			menu:AddNewAction("CopySummary", "Copy target path")
+		end
+
+		-- Copy error for failed commands
+		if not data.success and data.error then
+			menu:AddNewAction("CopyError", "Copy error message")
+		end
+
+		-- "Undo to here" only for entries that created a waypoint
+		if data.hasWaypoint then
+			-- Count undoable entries newer than this one
+			local undoCount = 0
+			for _, histEntry in ipairs(historyList) do
+				local info = entryData[histEntry]
+				if info and info.index > data.index and info.hasWaypoint then
+					undoCount = undoCount + 1
+				end
+			end
+			menu:AddSeparator()
+			if undoCount > 0 then
+				menu:AddNewAction("UndoToHere", "Undo to here (" .. tostring(undoCount + 1) .. " actions)")
+			else
+				menu:AddNewAction("UndoToHere", "Undo this action")
+			end
+		end
+
 		menu:AddSeparator()
-		local undoLast = menu:AddNewAction("UndoLast", "Undo last action")
-		local redoLast = menu:AddNewAction("RedoLast", "Redo last action")
+		menu:AddNewAction("UndoLast", "Undo last action")
+		menu:AddNewAction("RedoLast", "Redo last action")
 		menu:AddSeparator()
-		local clearHistory = menu:AddNewAction("ClearHistory", "Clear history")
+		menu:AddNewAction("ClearHistory", "Clear history")
 
 		-- Show menu and handle selection
 		local selected = menu:ShowAsync()
@@ -143,16 +176,15 @@ function HistoryPanel.create(pluginRef)
 		local actionId = selected.ActionId
 
 		if actionId == "UndoToHere" then
-			-- Undo all commands after this one (newer commands)
+			-- Count undoable entries newer than this one (inclusive of this entry)
 			local targetIndex = data.index
 			local undoCount = 0
-			for i, histEntry in ipairs(historyList) do
-				local entryInfo = entryData[histEntry]
-				if entryInfo and entryInfo.index > targetIndex then
+			for _, histEntry in ipairs(historyList) do
+				local info = entryData[histEntry]
+				if info and info.index >= targetIndex and info.hasWaypoint then
 					undoCount = undoCount + 1
 				end
 			end
-			-- Perform undos
 			for _ = 1, undoCount do
 				pcall(function()
 					Services.ChangeHistoryService:Undo()
@@ -161,10 +193,22 @@ function HistoryPanel.create(pluginRef)
 
 		elseif actionId == "CopyMethod" then
 			pcall(function()
-				Services.Selection:Set({}) -- Clear selection to unfocus
-				-- Use SetClipboard if available (plugin context)
 				if pluginRef.SetClipboard then
 					pluginRef:SetClipboard(data.method)
+				end
+			end)
+
+		elseif actionId == "CopySummary" then
+			pcall(function()
+				if pluginRef.SetClipboard and data.summary then
+					pluginRef:SetClipboard(data.summary)
+				end
+			end)
+
+		elseif actionId == "CopyError" then
+			pcall(function()
+				if pluginRef.SetClipboard and data.error then
+					pluginRef:SetClipboard(data.error)
 				end
 			end)
 
@@ -183,38 +227,68 @@ function HistoryPanel.create(pluginRef)
 		end
 	end
 
-	function api.addEntry(method, success)
+	----------------------------------------------------------------------------
+	-- Entry Creation
+	----------------------------------------------------------------------------
+	function api.addEntry(data)
 		emptyState.Visible = false
 
+		local method = data.method
+		local success = data.success
+		local summary = data.summary or ""
+		local errorMsg = data.error
+		local hasWaypoint = data.hasWaypoint or false
 		local timestamp = os_date("%H:%M:%S")
 		local currentIndex = entryCount
+		local hasSummary = summary ~= ""
 
-		-- Entry row (36px = consistent touch target)
+		-- Track waypoints
+		if hasWaypoint then
+			waypointCount = waypointCount + 1
+		end
+
+		-- Entry height: 36px base, 50px with summary subtitle
+		local entryHeight = hasSummary and 50 or 36
+
+		-- Entry row
 		local entry = Instance.new("Frame")
 		entry.Name = "Entry" .. entryCount
-		entry.Size = UDim2.new(1, -4, 0, 36)
+		entry.Size = UDim2.new(1, -4, 0, entryHeight)
 		entry.BackgroundColor3 = Theme.COLORS.bgMuted
 		entry.BackgroundTransparency = 1
 		entry.BorderSizePixel = 0
 
-		-- Store entry data
-		local data = {
+		-- Store entry data for context menu and undo tracking
+		local entryInfo = {
 			method = method,
 			success = success,
+			summary = summary,
+			error = errorMsg,
+			hasWaypoint = hasWaypoint,
 			index = currentIndex,
 			timestamp = timestamp,
 		}
-		entryData[entry] = data
+		entryData[entry] = entryInfo
 
 		local entryCorner = Instance.new("UICorner")
 		entryCorner.CornerRadius = UDim.new(0, Theme.RADIUS.sm)
 		entryCorner.Parent = entry
 
 		-- Status indicator bar (left edge)
+		-- Green = success+mutating, Gray = read-only, Red = error
+		local barColor
+		if not success then
+			barColor = Theme.COLORS.error
+		elseif hasWaypoint then
+			barColor = Theme.COLORS.success
+		else
+			barColor = Theme.COLORS.bgSubtle
+		end
+
 		local statusBar = Instance.new("Frame")
 		statusBar.Size = UDim2.new(0, 3, 1, -12)
 		statusBar.Position = UDim2.new(0, 4, 0, 6)
-		statusBar.BackgroundColor3 = success and Theme.COLORS.success or Theme.COLORS.error
+		statusBar.BackgroundColor3 = barColor
 		statusBar.BorderSizePixel = 0
 		statusBar.Parent = entry
 
@@ -222,23 +296,42 @@ function HistoryPanel.create(pluginRef)
 		barCorner.CornerRadius = UDim.new(0, 2)
 		barCorner.Parent = statusBar
 
-		-- Method name
+		-- Method name (dimmed for read-only queries)
+		local methodColor = hasWaypoint and Theme.COLORS.textPrimary or Theme.COLORS.textSecondary
+		local methodFont = hasWaypoint and Theme.FONTS.Medium or Theme.FONTS.Regular
+
 		local methodLabel = Instance.new("TextLabel")
-		methodLabel.Size = UDim2.new(1, -80, 1, 0)
-		methodLabel.Position = UDim2.new(0, 16, 0, 0)
+		methodLabel.Size = UDim2.new(1, -80, 0, hasSummary and 20 or entryHeight)
+		methodLabel.Position = UDim2.new(0, 16, 0, hasSummary and 4 or 0)
 		methodLabel.BackgroundTransparency = 1
 		methodLabel.Text = method
-		methodLabel.TextColor3 = Theme.COLORS.textPrimary
+		methodLabel.TextColor3 = not success and Theme.COLORS.error or methodColor
 		methodLabel.TextSize = Theme.TYPE.body.size
-		methodLabel.FontFace = Theme.FONTS.Medium
+		methodLabel.FontFace = methodFont
 		methodLabel.TextXAlignment = Enum.TextXAlignment.Left
 		methodLabel.TextTruncate = Enum.TextTruncate.AtEnd
 		methodLabel.Parent = entry
 
+		-- Summary subtitle (only if available)
+		if hasSummary then
+			local summaryLabel = Instance.new("TextLabel")
+			summaryLabel.Name = "Summary"
+			summaryLabel.Size = UDim2.new(1, -80, 0, 18)
+			summaryLabel.Position = UDim2.new(0, 16, 0, 26)
+			summaryLabel.BackgroundTransparency = 1
+			summaryLabel.Text = summary
+			summaryLabel.TextColor3 = Theme.COLORS.textTertiary
+			summaryLabel.TextSize = Theme.TYPE.micro.size
+			summaryLabel.FontFace = Theme.FONTS.Regular
+			summaryLabel.TextXAlignment = Enum.TextXAlignment.Left
+			summaryLabel.TextTruncate = Enum.TextTruncate.AtEnd
+			summaryLabel.Parent = entry
+		end
+
 		-- Timestamp
 		local timeLabel = Instance.new("TextLabel")
-		timeLabel.Size = UDim2.new(0, 60, 1, 0)
-		timeLabel.Position = UDim2.new(1, -64, 0, 0)
+		timeLabel.Size = UDim2.new(0, 60, 0, hasSummary and 20 or entryHeight)
+		timeLabel.Position = UDim2.new(1, -64, 0, hasSummary and 4 or 0)
 		timeLabel.BackgroundTransparency = 1
 		timeLabel.Text = timestamp
 		timeLabel.TextColor3 = Theme.COLORS.textDisabled
@@ -263,7 +356,7 @@ function HistoryPanel.create(pluginRef)
 		-- Right-click context menu
 		entry.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton2 then
-				showContextMenu(entry, data)
+				showContextMenu(entry, entryInfo)
 			end
 		end)
 
@@ -276,6 +369,10 @@ function HistoryPanel.create(pluginRef)
 		while #historyList > MAX_ENTRIES do
 			local old = table_remove(historyList)
 			if old then
+				local oldData = entryData[old]
+				if oldData and oldData.hasWaypoint then
+					waypointCount = waypointCount - 1
+				end
 				entryData[old] = nil
 				old:Destroy()
 			end
@@ -293,6 +390,7 @@ function HistoryPanel.create(pluginRef)
 		historyList = {}
 		entryData = {}
 		entryCount = 0
+		waypointCount = 0
 		updateCount()
 		emptyState.Visible = true
 	end
