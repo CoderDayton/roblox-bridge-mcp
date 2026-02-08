@@ -58,3 +58,6 @@ AGENTS.md
 # MCP specific
 .mcp/
 mcp-data/
+
+# Rokit toolchain
+.rokit/

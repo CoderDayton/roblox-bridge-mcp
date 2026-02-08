@@ -40,6 +40,7 @@
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "test": "bun test",
+    "test:luau": "lune run tests/luau/runner",
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage",
     "format": "bunx prettier --write .",

@@ -29,6 +29,20 @@ jobs:
       - name: Run tests
         run: bun test
 
+  test-luau:
+    name: Test (Luau)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rokit
+        uses: rojo-rbx/setup-rokit@v1
+
+      - name: Run Luau tests
+        run: lune run tests/luau/runner
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
