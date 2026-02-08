@@ -43,6 +43,7 @@ jobs:
       - name: Install tools from rokit.toml
         run: |
           export PATH="$HOME/.rokit/bin:$PATH"
+          rokit trust lune-org/lune
           rokit install
 
       - name: Run Luau tests
