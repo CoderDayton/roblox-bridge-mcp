@@ -32,16 +32,13 @@ local JSONDecode = HttpService.JSONDecode
 local WebSocket = {}
 
 --------------------------------------------------------------------------------
--- State
---------------------------------------------------------------------------------
-local wsClient = nil
-local isConnecting = false
-local retryScheduled = false
-
---------------------------------------------------------------------------------
 -- Create Connection Manager
 --------------------------------------------------------------------------------
 function WebSocket.create(config)
+	-- Per-instance connection state (inside closure, not module-level)
+	local wsClient = nil
+	local isConnecting = false
+	local retryScheduled = false
 	local state = {
 		isConnected = false,
 		isEnabled = false,
@@ -83,13 +80,34 @@ function WebSocket.create(config)
 
 	function manager.resetRetry()
 		state.retryInterval = config.RETRY_INTERVAL
+		state.retryCount = 0
 	end
 
 	--------------------------------------------------------------------------------
 	-- Connection
 	--------------------------------------------------------------------------------
+
+	--------------------------------------------------------------------------------
+	-- Check if Studio is in Edit mode (not Play/Run)
+	-- Protected with pcall to prevent crashes if RunService unavailable
+	-- @returns boolean - true if in Edit mode, false otherwise
+	-- @private
+	--------------------------------------------------------------------------------
+	local function isEditMode()
+		local success, result = pcall(function()
+			local RunService = Services.RunService
+			return not RunService:IsRunning() and not RunService:IsRunMode()
+		end)
+		return success and result
+	end
+
 	local function connect()
 		if isConnecting or wsClient then return false end
+
+		-- Don't connect if not in Edit mode
+		if not isEditMode() then
+			return false
+		end
 
 		isConnecting = true
 		local wsUrl = "ws://localhost:" .. config.BASE_PORT .. "/ws"
@@ -190,8 +208,10 @@ function WebSocket.create(config)
 						connect()
 					end
 				end)
-			elseif state.retryCount > config.MAX_RETRIES then
+			elseif state.retryCount == config.MAX_RETRIES + 1 then
+				-- Only log once when we first exceed the limit
 				print("[MCP] Max retries reached, stopping reconnection attempts")
+				print("[MCP] Click 'Connect' to try again")
 			end
 		end)
 
@@ -280,16 +300,21 @@ function WebSocket.create(config)
 				task_wait(0.5)
 
 				if state.isEnabled then
-					-- Try to connect if not connected
+					-- Try to connect if not connected and haven't exceeded retries
 					if not state.isConnected and not wsClient and not isConnecting then
-						connect()
-						task_wait(state.retryInterval)
+						if state.retryCount <= config.MAX_RETRIES then
+							connect()
+							task_wait(state.retryInterval)
+						end
+						-- If max retries exceeded, just wait for manual reconnect
 					end
 				else
 					-- Disconnect if disabled
 					if state.isConnected or wsClient then
 						manager.disconnect()
 					end
+					-- Reset retry count when disabled (allows fresh start on re-enable)
+					state.retryCount = 0
 				end
 			end
 		end)()

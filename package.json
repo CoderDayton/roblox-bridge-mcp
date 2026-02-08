@@ -1,9 +1,12 @@
 {
   "name": "roblox-bridge-mcp",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "MCP bridge connecting AI to Roblox Studio for real-time world building",
   "type": "module",
   "main": "src/index.ts",
+  "bin": {
+    "roblox-bridge-mcp": "src/index.ts"
+  },
   "files": [
     "src",
     "plugin",
@@ -43,7 +46,8 @@
     "format:check": "bunx prettier --check .",
     "prepare": "lefthook install",
     "prepublishOnly": "bun run typecheck && bun run lint && bun test",
-    "build": "tsc --outDir dist"
+    "build": "tsc --outDir dist",
+    "build:plugin": "bun scripts/generate-installer.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

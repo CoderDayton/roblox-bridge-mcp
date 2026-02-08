@@ -20,8 +20,10 @@ local ipairs = ipairs
 local pcall = pcall
 local tostring = tostring
 
-local Services = require(script.Parent.Parent.utils.services)
-local Path = require(script.Parent.Parent.utils.path)
+local Root = script.Parent.Parent
+local Services = require(Root.utils.services)
+local Path = require(Root.utils.path)
+local ChangeHistory = Services.ChangeHistoryService
 
 local Tools = {}
 
@@ -40,11 +42,13 @@ end
 
 function Tools.DeleteInstance(p)
 	Path.require(p.path):Destroy()
+	ChangeHistory:SetWaypoint("MCP DeleteInstance")
 	return "Deleted"
 end
 
 function Tools.ClearAllChildren(p)
 	Path.require(p.path):ClearAllChildren()
+	ChangeHistory:SetWaypoint("MCP ClearAllChildren")
 	return "Cleared"
 end
 
@@ -216,6 +220,7 @@ function Tools.GroupSelection(p)
 	model.Parent = sel[1].Parent
 	for _, obj in ipairs(sel) do obj.Parent = model end
 	Services.Selection:Set({ model })
+	ChangeHistory:SetWaypoint("MCP GroupSelection")
 	return model:GetFullName()
 end
 
@@ -226,6 +231,7 @@ function Tools.UngroupModel(p)
 	local children = model:GetChildren()
 	for _, child in ipairs(children) do child.Parent = parent end
 	model:Destroy()
+	ChangeHistory:SetWaypoint("MCP UngroupModel")
 	return "Ungrouped"
 end
 

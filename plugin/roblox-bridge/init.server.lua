@@ -9,7 +9,7 @@ local pairs = pairs
 local pcall = pcall
 local tostring = tostring
 
-local VERSION = "1.1.0"
+local VERSION = "2.0.0"
 local CONFIG = {
 	VERSION = VERSION,
 	BASE_PORT = 62847,
@@ -26,7 +26,7 @@ local CONFIG = {
 local Parent = script.Parent
 local Services = require(Parent.utils.services)
 local Path = require(Parent.utils.path)
-local UI = require(Parent.utils.ui)
+local UI = require(Parent.ui)
 local WebSocket = require(Parent.utils.websocket)
 
 -- Tool modules
@@ -80,9 +80,14 @@ ui = UI.createWidget(plugin, {
 	onToggleConnection = function()
 		if not wsManager then return end
 		local state = wsManager.getState()
-		wsManager.setEnabled(not state.isEnabled)
-		if not state.isEnabled then
+		local newEnabled = not state.isEnabled
+		wsManager.setEnabled(newEnabled)
+		if newEnabled then
+			-- Starting connection attempt
+			ui.setConnecting(true)
 			wsManager.resetRetry()
+		else
+			-- Disconnecting
 			ui.setConnectionState(false, "localhost", nil)
 		end
 	end,
@@ -98,6 +103,14 @@ end)
 --------------------------------------------------------------------------------
 
 local function handleCommand(cmd)
+	-- Validate command structure
+	if type(cmd) ~= "table" or type(cmd.id) ~= "string" or type(cmd.method) ~= "string" then
+		if wsManager and type(cmd) == "table" and cmd.id then
+			wsManager.sendResult(cmd.id, false, nil, "Malformed command: missing id or method")
+		end
+		return
+	end
+
 	local handler = Tools[cmd.method]
 	if not handler then
 		wsManager.sendResult(cmd.id, false, nil, "Unknown method: " .. cmd.method)
@@ -140,6 +153,20 @@ wsManager.setCallbacks({
 
 wsManager.startLoop()
 updateButtonState()
+
+--------------------------------------------------------------------------------
+-- Cleanup on Unload
+--------------------------------------------------------------------------------
+
+plugin.Unloading:Connect(function()
+	if wsManager then
+		wsManager.setEnabled(false)
+		wsManager.disconnect()
+	end
+	if ui then
+		ui.cleanup()
+	end
+end)
 
 --------------------------------------------------------------------------------
 -- Global

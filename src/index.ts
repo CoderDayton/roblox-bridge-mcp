@@ -1,12 +1,13 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { FastMCP } from "fastmcp";
 import { startBridgeServer } from "./utils/bridge";
 import { registerAllTools, registerResources } from "./tools";
 import { logger } from "./utils/logger";
+import { config } from "./config";
 
 const server = new FastMCP({
   name: "roblox-bridge-mcp",
-  version: "1.1.0",
+  version: config.version,
 });
 
 // Register all Roblox tools and resources

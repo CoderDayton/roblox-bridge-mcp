@@ -23,8 +23,9 @@ local tostring = tostring
 local tick = tick
 local unpack = unpack
 
-local Services = require(script.Parent.Parent.utils.services)
-local Path = require(script.Parent.Parent.utils.path)
+local Root = script.Parent.Parent
+local Services = require(Root.utils.services)
+local Path = require(Root.utils.path)
 
 local Tools = {}
 
@@ -138,6 +139,7 @@ function Tools.GetDataStore(p)
 end
 
 function Tools.SetDataStoreValue(p)
+	warn("[MCP] DataStore write: SetAsync on '" .. tostring(p.storeName) .. "' key '" .. tostring(p.key) .. "' - this may affect production data")
 	local ok, store = pcall(function()
 		return Services.DataStoreService:GetDataStore(p.storeName)
 	end)
@@ -162,6 +164,7 @@ function Tools.GetDataStoreValue(p)
 end
 
 function Tools.RemoveDataStoreValue(p)
+	warn("[MCP] DataStore write: RemoveAsync on '" .. tostring(p.storeName) .. "' key '" .. tostring(p.key) .. "' - this may affect production data")
 	local ok, store = pcall(function()
 		return Services.DataStoreService:GetDataStore(p.storeName)
 	end)
