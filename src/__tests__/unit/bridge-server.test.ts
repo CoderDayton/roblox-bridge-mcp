@@ -116,7 +116,7 @@ describe("Timeout Message Paths", () => {
   test("timeout message when connected shows standard timeout", async () => {
     // Add and mark client ready - isConnected() returns true
     bridge.addClient(ws);
-    bridge.markClientReady(ws, "1.1.0");
+    bridge.markClientReady(ws, "2.0.0");
     expect(bridge.isConnected()).toBe(true);
 
     const originalTimeout = config.timeout;
@@ -263,15 +263,15 @@ describe("handleMessage simulation", () => {
     expect(bridge.isConnected()).toBe(false);
 
     // Simulate what handleMessage does on handshake
-    bridge.markClientReady(ws, "1.1.0");
+    bridge.markClientReady(ws, "2.0.0");
 
     expect(ws.data.ready).toBe(true);
-    expect(ws.data.version).toBe("1.1.0");
+    expect(ws.data.version).toBe("2.0.0");
     expect(bridge.isConnected()).toBe(true);
   });
 
   test("result message triggers handleResult", async () => {
-    bridge.markClientReady(ws, "1.1.0");
+    bridge.markClientReady(ws, "2.0.0");
 
     const executePromise = bridge.execute("TestMethod", { param: "value" });
 
@@ -295,7 +295,7 @@ describe("handleMessage simulation", () => {
   });
 
   test("handleResult with failed result rejects promise", async () => {
-    bridge.markClientReady(ws, "1.1.0");
+    bridge.markClientReady(ws, "2.0.0");
 
     const executePromise = bridge.execute("FailingMethod", { param: "value" });
 
@@ -353,7 +353,7 @@ describe("WebSocket message handling simulation", () => {
   test("ping message handling - bridge sends pong", () => {
     // The handleMessage function sends pong on ping
     // We test the expected behavior pattern
-    bridge.markClientReady(ws, "1.1.0");
+    bridge.markClientReady(ws, "2.0.0");
     clearMessages(ws);
 
     // In real implementation, handleMessage would send:
@@ -423,7 +423,7 @@ describe("handleMessage direct tests", () => {
   });
 
   test("handshake with compatible version sends handshake_ok", () => {
-    _handleMessage(ws, JSON.stringify({ type: "handshake", version: "1.1.0" }));
+    _handleMessage(ws, JSON.stringify({ type: "handshake", version: "2.0.0" }));
 
     const messages = getMessages(ws);
     expect(messages.some((m) => m.includes('"type":"handshake_ok"'))).toBe(true);
@@ -440,7 +440,7 @@ describe("handleMessage direct tests", () => {
   });
 
   test("result message calls handleResult and sends ack", async () => {
-    bridge.markClientReady(ws, "1.1.0");
+    bridge.markClientReady(ws, "2.0.0");
     clearMessages(ws);
 
     const executePromise = bridge.execute("TestCmd", { test: true });
@@ -620,7 +620,7 @@ describe("tryStartServer direct tests", () => {
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data);
         if (data.type === "connected") {
-          ws.send(JSON.stringify({ type: "handshake", version: "1.1.0" }));
+          ws.send(JSON.stringify({ type: "handshake", version: "2.0.0" }));
         }
         if (data.type === "handshake_ok") {
           handshakeOk = true;
@@ -650,7 +650,7 @@ describe("tryStartServer direct tests", () => {
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data);
         if (data.type === "connected") {
-          ws.send(JSON.stringify({ type: "handshake", version: "1.1.0" }));
+          ws.send(JSON.stringify({ type: "handshake", version: "2.0.0" }));
         }
         if (data.type === "handshake_ok") resolve();
       };
@@ -768,7 +768,7 @@ describe("Real WebSocket Server Integration", () => {
         messages.push(e.data);
         const data = JSON.parse(e.data);
         if (data.type === "connected") {
-          ws.send(JSON.stringify({ type: "handshake", version: "1.1.0" }));
+          ws.send(JSON.stringify({ type: "handshake", version: "2.0.0" }));
         }
         if (data.type === "handshake_ok") resolve();
       };
@@ -837,7 +837,7 @@ describe("Real WebSocket Server Integration", () => {
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data);
         if (data.type === "connected") {
-          ws.send(JSON.stringify({ type: "handshake", version: "1.1.0" }));
+          ws.send(JSON.stringify({ type: "handshake", version: "2.0.0" }));
         }
         if (data.type === "handshake_ok") {
           // Send a result message

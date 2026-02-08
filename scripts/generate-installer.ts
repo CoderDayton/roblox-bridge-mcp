@@ -7,6 +7,9 @@
 import { readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { join, relative, basename, dirname } from "path";
 
+const PKG_VERSION = JSON.parse(
+  readFileSync(join(import.meta.dir, "..", "package.json"), "utf-8")
+).version;
 const PLUGIN_ROOT = join(import.meta.dir, "..", "plugin", "roblox-bridge");
 const OUTPUT_PATH = join(import.meta.dir, "install-plugin.lua");
 
@@ -38,7 +41,11 @@ function collectFiles(dir: string, files: FileEntry[] = []): FileEntry[] {
     if (stat.isDirectory()) {
       collectFiles(fullPath, files);
     } else if (entry.endsWith(".lua")) {
-      const content = readFileSync(fullPath, "utf-8");
+      let content = readFileSync(fullPath, "utf-8");
+      // Inject version from package.json into init.server.lua
+      if (entry === "init.server.lua") {
+        content = content.replace(/local VERSION = "[^"]+"/, `local VERSION = "${PKG_VERSION}"`);
+      }
       const relativePath = relative(PLUGIN_ROOT, fullPath);
       const name = basename(entry, ".lua");
       const isScript = entry.endsWith(".server.lua") || entry.endsWith(".client.lua");

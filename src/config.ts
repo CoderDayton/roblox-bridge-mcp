@@ -3,6 +3,9 @@ import { config as loadEnv } from "dotenv";
 // Load .env file silently (debug output breaks MCP JSON protocol)
 loadEnv({ debug: false });
 
+// Single source of truth: read version from package.json
+import pkg from "../package.json";
+
 export interface Config {
   /** Server version for protocol compatibility checks */
   version: string;
@@ -20,10 +23,10 @@ function parseNumber(value: string | undefined, defaultValue: number): number {
 }
 
 /**
- * Cache server version parts at module load for faster comparison.
- * Avoids repeated string splits in isVersionCompatible().
+ * Version from package.json — single source of truth.
+ * Pre-compute parts at module load for fast comparison.
  */
-const SERVER_VERSION = "1.1.0" as const;
+const SERVER_VERSION = pkg.version;
 const firstDot = SERVER_VERSION.indexOf(".");
 const secondDot = SERVER_VERSION.indexOf(".", firstDot + 1);
 const SERVER_MAJOR = SERVER_VERSION.substring(0, firstDot);
@@ -35,7 +38,7 @@ const SERVER_MINOR = SERVER_VERSION.substring(firstDot + 1, secondDot);
  *
  * Optimized to avoid string splits by using indexOf/substring.
  *
- * @param pluginVersion - Version string from the plugin (e.g., "1.1.0")
+ * @param pluginVersion - Version string from the plugin (e.g., "2.0.0")
  * @returns true if compatible, false otherwise
  */
 export function isVersionCompatible(pluginVersion: string): boolean {

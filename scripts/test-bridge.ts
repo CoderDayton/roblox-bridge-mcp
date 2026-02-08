@@ -23,7 +23,7 @@ async function testBridge(method: string, params: Record<string, unknown> = {}) 
       ws.send(
         JSON.stringify({
           type: "handshake",
-          version: "1.1.0",
+          version: "2.0.0",
         })
       );
     };
