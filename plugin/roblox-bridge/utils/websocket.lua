@@ -255,7 +255,7 @@ function WebSocket.create(config)
 			data = {
 				id = id,
 				success = success,
-				result = result,
+				data = result,
 				error = err
 			}
 		})
