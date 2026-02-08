@@ -37,11 +37,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Rokit
-        uses: rojo-rbx/setup-rokit@v1
+      - name: Install Rokit
+        run: curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+
+      - name: Install tools from rokit.toml
+        run: |
+          export PATH="$HOME/.rokit/bin:$PATH"
+          rokit install
 
       - name: Run Luau tests
-        run: lune run tests/luau/runner
+        run: |
+          export PATH="$HOME/.rokit/bin:$PATH"
+          lune run tests/luau/runner
 
   lint:
     name: Lint
